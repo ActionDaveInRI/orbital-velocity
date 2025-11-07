@@ -22,20 +22,21 @@
     }
     #ui {
       position: absolute;
-      top: 10px;
-      left: 10px;
+      top: clamp(8px, 1vh, 12px);
+      left: clamp(8px, 1vw, 12px);
       color: #d1d5db;
-      font-size: 14px;
+      font-size: clamp(11px, 1.2vw, 14px);
       z-index: 10;
       background: rgba(30, 30, 30, 0.5);
       backdrop-filter: blur(12px);
-      padding: 12px 16px;
+      padding: clamp(8px, 1vh, 12px) clamp(10px, 1.2vw, 16px);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      max-width: min(250px, 30vw);
     }
     #ui div {
-      margin: 4px 0;
+      margin: clamp(2px, 0.5vh, 4px) 0;
     }
     #menu {
       position: absolute;
@@ -45,27 +46,29 @@
       background: rgba(30, 30, 30, 0.6);
       backdrop-filter: blur(20px);
       border: 1px solid rgba(255, 255, 255, 0.15);
-      padding: 40px 50px;
+      padding: clamp(20px, 4vh, 40px) clamp(25px, 5vw, 50px);
       text-align: center;
       z-index: 20;
       border-radius: 12px;
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      max-width: min(90vw, 600px);
     }
     #menu h1 {
       color: #f3f4f6;
-      margin-bottom: 20px;
+      margin-bottom: clamp(10px, 2vh, 20px);
       font-weight: 600;
       letter-spacing: 2px;
+      font-size: clamp(24px, 5vw, 48px);
     }
     #menu button {
       background: rgba(255, 255, 255, 0.08);
       color: #e5e7eb;
       border: 1px solid rgba(255, 255, 255, 0.2);
-      padding: 12px 28px;
-      margin: 10px;
+      padding: clamp(10px, 1.5vh, 12px) clamp(20px, 3vw, 28px);
+      margin: clamp(5px, 1vh, 10px);
       cursor: pointer;
       font-family: inherit;
-      font-size: 16px;
+      font-size: clamp(14px, 2vw, 16px);
       border-radius: 6px;
       transition: all 0.2s ease;
       touch-action: manipulation;
@@ -83,16 +86,17 @@
     }
     #controls {
       position: absolute;
-      bottom: 10px;
-      left: 10px;
+      bottom: clamp(8px, 1vh, 10px);
+      left: clamp(8px, 1vw, 10px);
       color: #d1d5db;
-      font-size: 12px;
+      font-size: clamp(10px, 1.2vw, 12px);
       background: rgba(30, 30, 30, 0.5);
       backdrop-filter: blur(12px);
-      padding: 12px 16px;
+      padding: clamp(8px, 1vh, 12px) clamp(10px, 1.2vw, 16px);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      max-width: min(200px, 25vw);
     }
     @keyframes pulse {
       0%, 100% {
@@ -102,6 +106,39 @@
       50% {
         opacity: 0.7;
         transform: scale(1.02);
+      }
+    }
+    
+    /* Media queries for very small screens */
+    @media (max-width: 480px) {
+      #ui {
+        max-width: calc(100vw - 20px);
+        font-size: 11px;
+      }
+      #performanceMonitor {
+        max-width: calc(100vw - 20px);
+        font-size: 9px;
+      }
+      #minimap {
+        width: min(150px, 30vw);
+        height: min(150px, 30vw);
+      }
+      #scanner {
+        width: min(280px, 40vw);
+        max-width: calc(100vw - 20px);
+      }
+      #virtualControls {
+        width: min(130px, 25vw);
+      }
+    }
+    
+    @media (max-height: 600px) {
+      #minimap {
+        width: min(150px, 20vw);
+        height: min(150px, 20vw);
+      }
+      #scanner {
+        top: calc(min(150px, 20vw) + clamp(8px, 1vh, 10px) + 8px);
       }
     }
   </style>
@@ -114,13 +151,13 @@
     <div>Altitude: <span id="altitudeText" style="color: #f3f4f6;">0</span> km</div>
     <div>Orbit: <span id="orbitText" style="color: #f3f4f6;">None</span></div>
     <div>Power: <span id="powerText" style="color: #f3f4f6;">100</span>%</div>
-    <div id="powerBar" style="width: 200px; height: 8px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.15); margin-top: 8px; border-radius: 4px; overflow: hidden;">
+    <div id="powerBar" style="width: min(200px, 25vw); height: clamp(6px, 0.8vh, 8px); background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.15); margin-top: clamp(4px, 0.8vh, 8px); border-radius: 4px; overflow: hidden;">
       <div id="powerFill" style="height: 100%; background: linear-gradient(90deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.6)); width: 100%; transition: width 0.2s ease, background 0.2s ease; box-shadow: 0 0 8px rgba(255, 255, 255, 0.2);"></div>
     </div>
-    <div id="collisionWarning" style="display: none; color: #fca5a5; font-size: 16px; font-weight: 600; margin-top: 12px; text-shadow: 0 0 8px rgba(252, 165, 165, 0.4); animation: pulse 1.5s ease-in-out infinite;">⚠ COLLISION WARNING ⚠</div>
+    <div id="collisionWarning" style="display: none; color: #fca5a5; font-size: clamp(12px, 1.8vw, 16px); font-weight: 600; margin-top: clamp(8px, 1vh, 12px); text-shadow: 0 0 8px rgba(252, 165, 165, 0.4); animation: pulse 1.5s ease-in-out infinite;">⚠ COLLISION WARNING ⚠</div>
   </div>
 
-  <div id="performanceMonitor" style="display: none; position: absolute; bottom: 10px; left: 10px; background: rgba(30, 30, 30, 0.5); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 12px 16px; z-index: 10; color: #d1d5db; font-size: 11px; font-family: 'Courier New', monospace; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); min-width: 200px;">
+  <div id="performanceMonitor" style="display: none; position: absolute; bottom: clamp(8px, 1vh, 10px); left: clamp(8px, 1vw, 10px); background: rgba(30, 30, 30, 0.5); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: clamp(8px, 1vh, 12px) clamp(10px, 1.2vw, 16px); z-index: 10; color: #d1d5db; font-size: clamp(9px, 1.1vw, 11px); font-family: 'Courier New', monospace; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); min-width: min(200px, 25vw); max-width: min(250px, 30vw);">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
       <div style="font-weight: 600; color: #f3f4f6; font-size: 12px;">PERFORMANCE</div>
       <button id="copyPerfButton" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.15); color: #d1d5db; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 10px; font-family: 'Courier New', monospace; transition: background 0.2s;" onmouseover="this.style.background='rgba(255, 255, 255, 0.2)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'">COPY</button>
@@ -140,27 +177,27 @@
     </div>
   </div>
 
-  <div id="minimap" style="display: none; position: absolute; top: 10px; right: 10px; width: 200px; height: 200px; background: rgba(30, 30, 30, 0.5); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; z-index: 10; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); overflow: hidden;">
-    <canvas id="minimapCanvas" width="200" height="200"></canvas>
+  <div id="minimap" style="display: none; position: absolute; top: clamp(8px, 1vh, 10px); right: clamp(8px, 1vw, 10px); width: min(200px, 25vw); height: min(200px, 25vw); background: rgba(30, 30, 30, 0.5); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; z-index: 10; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); overflow: hidden;">
+    <canvas id="minimapCanvas" style="width: 100%; height: 100%; display: block;"></canvas>
   </div>
 
-  <div id="scanner" style="display: none; position: absolute; top: 220px; right: 10px; width: 300px; background: rgba(30, 30, 30, 0.6); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; padding: 16px; z-index: 10; color: #d1d5db; font-size: 14px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);">
-    <div style="font-weight: 600; font-size: 16px; margin-bottom: 12px; color: #f3f4f6; letter-spacing: 1px;">SCANNER</div>
-    <div id="scannerContent" style="line-height: 1.6;">Click on an object to scan</div>
+  <div id="scanner" style="display: none; position: absolute; top: calc(min(200px, 25vw) + clamp(8px, 1vh, 10px) + 10px); right: clamp(8px, 1vw, 10px); width: min(300px, 35vw); max-width: calc(100vw - 20px); background: rgba(30, 30, 30, 0.6); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; padding: clamp(10px, 1.5vh, 16px); z-index: 10; color: #d1d5db; font-size: clamp(11px, 1.3vw, 14px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);">
+    <div style="font-weight: 600; font-size: clamp(13px, 1.5vw, 16px); margin-bottom: clamp(8px, 1vh, 12px); color: #f3f4f6; letter-spacing: 1px;">SCANNER</div>
+    <div id="scannerContent" style="line-height: 1.6; font-size: clamp(11px, 1.3vw, 14px);">Click on an object to scan</div>
   </div>
 
   <!-- Virtual Control Pad - Separate Window -->
-  <div id="virtualControls" style="display: none; position: absolute; bottom: 10px; right: 10px; width: 150px; background: rgba(30, 30, 30, 0.6); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; padding: 16px; z-index: 10; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);">
-    <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px;">
-      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; width: 120px;">
+  <div id="virtualControls" style="display: none; position: absolute; bottom: clamp(8px, 1vh, 10px); right: clamp(8px, 1vw, 10px); width: min(150px, 20vw); background: rgba(30, 30, 30, 0.6); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; padding: clamp(10px, 1.5vh, 16px); z-index: 10; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);">
+    <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; gap: clamp(6px, 1vh, 8px);">
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(3px, 0.5vw, 4px); width: min(120px, 16vw);">
         <div></div>
-        <button class="virtual-key" data-key="w" style="grid-column: 2; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #d1d5db; padding: 12px; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: 600; user-select: none; touch-action: none; transition: all 0.1s;">↑</button>
+        <button class="virtual-key" data-key="w" style="grid-column: 2; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #d1d5db; padding: clamp(8px, 1.2vh, 12px); border-radius: 4px; cursor: pointer; font-size: clamp(12px, 2vw, 16px); font-weight: 600; user-select: none; touch-action: none; transition: all 0.1s;">↑</button>
         <div></div>
-        <button class="virtual-key" data-key="a" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #d1d5db; padding: 12px; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: 600; user-select: none; touch-action: none; transition: all 0.1s;">←</button>
-        <button class="virtual-key" data-key="s" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #d1d5db; padding: 12px; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: 600; user-select: none; touch-action: none; transition: all 0.1s;">↓</button>
-        <button class="virtual-key" data-key="d" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #d1d5db; padding: 12px; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: 600; user-select: none; touch-action: none; transition: all 0.1s;">→</button>
+        <button class="virtual-key" data-key="a" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #d1d5db; padding: clamp(8px, 1.2vh, 12px); border-radius: 4px; cursor: pointer; font-size: clamp(12px, 2vw, 16px); font-weight: 600; user-select: none; touch-action: none; transition: all 0.1s;">←</button>
+        <button class="virtual-key" data-key="s" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #d1d5db; padding: clamp(8px, 1.2vh, 12px); border-radius: 4px; cursor: pointer; font-size: clamp(12px, 2vw, 16px); font-weight: 600; user-select: none; touch-action: none; transition: all 0.1s;">↓</button>
+        <button class="virtual-key" data-key="d" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #d1d5db; padding: clamp(8px, 1.2vh, 12px); border-radius: 4px; cursor: pointer; font-size: clamp(12px, 2vw, 16px); font-weight: 600; user-select: none; touch-action: none; transition: all 0.1s;">→</button>
       </div>
-      <button class="virtual-key" data-key=" " style="width: 120px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #d1d5db; padding: 12px; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 600; user-select: none; touch-action: none; transition: all 0.1s;">SPACE</button>
+      <button class="virtual-key" data-key=" " style="width: min(120px, 16vw); background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #d1d5db; padding: clamp(8px, 1.2vh, 12px); border-radius: 4px; cursor: pointer; font-size: clamp(11px, 1.8vw, 14px); font-weight: 600; user-select: none; touch-action: none; transition: all 0.1s;">SPACE</button>
     </div>
   </div>
 
@@ -3029,9 +3066,22 @@
       const minimapCanvas = document.getElementById('minimapCanvas');
       const minimapCtx = minimapCanvas.getContext('2d');
       
+      // Get actual canvas size from container
+      const minimapContainer = document.getElementById('minimap');
+      const minimapSize = Math.min(minimapContainer.offsetWidth, minimapContainer.offsetHeight);
+      
+      // Set canvas size to match container (accounting for device pixel ratio)
+      const dpr = window.devicePixelRatio || 1;
+      minimapCanvas.width = minimapSize * dpr;
+      minimapCanvas.height = minimapSize * dpr;
+      
+      // Reset transform and apply DPR scale
+      minimapCtx.setTransform(1, 0, 0, 1, 0, 0);
+      minimapCtx.scale(dpr, dpr);
+      
       // Clear minimap
       minimapCtx.fillStyle = 'rgba(30, 30, 30, 0.3)';
-      minimapCtx.fillRect(0, 0, 200, 200);
+      minimapCtx.fillRect(0, 0, minimapSize, minimapSize);
       
       // Calculate bounds to show
       let minX = Infinity, maxX = -Infinity;
@@ -3059,8 +3109,8 @@
         maxY = Math.max(maxY, moon.y);
       });
       
-      // Add padding
-      const padding = 200;
+      // Add padding (proportional to minimap size)
+      const padding = minimapSize * 0.5;
       minX -= padding;
       maxX += padding;
       minY -= padding;
@@ -3068,12 +3118,12 @@
       
       const width = maxX - minX;
       const height = maxY - minY;
-      const scale = Math.min(200 / width, 200 / height);
+      const scale = Math.min(minimapSize / width, minimapSize / height);
       
       // Draw border
       minimapCtx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
       minimapCtx.lineWidth = 2;
-      minimapCtx.strokeRect(0, 0, 200, 200);
+      minimapCtx.strokeRect(0, 0, minimapSize, minimapSize);
       
       // Draw planets
       planets.forEach(planet => {
@@ -3345,6 +3395,11 @@ Canvas: ${canvasSize}`;
       // Update WebGL viewport
       if (gl) {
         gl.viewport(0, 0, CANVAS.width, CANVAS.height);
+      }
+      
+      // Force minimap redraw on resize to update canvas size
+      if (gameState === STATE_PLAYING && document.getElementById('minimap').style.display !== 'none') {
+        drawMinimap();
       }
     });
 
