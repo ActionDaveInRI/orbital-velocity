@@ -1,0 +1,3356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Orbital Velocity</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #0a0a0a;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+      color: #e0e6ed;
+    }
+    canvas {
+      display: block;
+      background: radial-gradient(circle at center, #1a1a1a 0%, #0a0a0a 100%);
+    }
+    #ui {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: #d1d5db;
+      font-size: 14px;
+      z-index: 10;
+      background: rgba(30, 30, 30, 0.5);
+      backdrop-filter: blur(12px);
+      padding: 12px 16px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    #ui div {
+      margin: 4px 0;
+    }
+    #menu {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(30, 30, 30, 0.6);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 40px 50px;
+      text-align: center;
+      z-index: 20;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+    #menu h1 {
+      color: #f3f4f6;
+      margin-bottom: 20px;
+      font-weight: 600;
+      letter-spacing: 2px;
+    }
+    #menu button {
+      background: rgba(255, 255, 255, 0.08);
+      color: #e5e7eb;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 12px 28px;
+      margin: 10px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 16px;
+      border-radius: 6px;
+      transition: all 0.2s ease;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #menu button:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    #menu button:active {
+      transform: translateY(0);
+      background: rgba(255, 255, 255, 0.2);
+    }
+    #controls {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      color: #d1d5db;
+      font-size: 12px;
+      background: rgba(30, 30, 30, 0.5);
+      backdrop-filter: blur(12px);
+      padding: 12px 16px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.7;
+        transform: scale(1.02);
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  
+  <div id="ui" style="display: none;">
+    <div>Speed: <span id="speedText" style="color: #f3f4f6;">0</span> m/s</div>
+    <div>Altitude: <span id="altitudeText" style="color: #f3f4f6;">0</span> km</div>
+    <div>Orbit: <span id="orbitText" style="color: #f3f4f6;">None</span></div>
+    <div>Power: <span id="powerText" style="color: #f3f4f6;">100</span>%</div>
+    <div id="powerBar" style="width: 200px; height: 8px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.15); margin-top: 8px; border-radius: 4px; overflow: hidden;">
+      <div id="powerFill" style="height: 100%; background: linear-gradient(90deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.6)); width: 100%; transition: width 0.2s ease, background 0.2s ease; box-shadow: 0 0 8px rgba(255, 255, 255, 0.2);"></div>
+    </div>
+    <div id="collisionWarning" style="display: none; color: #fca5a5; font-size: 16px; font-weight: 600; margin-top: 12px; text-shadow: 0 0 8px rgba(252, 165, 165, 0.4); animation: pulse 1.5s ease-in-out infinite;">⚠ COLLISION WARNING ⚠</div>
+  </div>
+
+  <div id="performanceMonitor" style="display: none; position: absolute; bottom: 10px; left: 10px; background: rgba(30, 30, 30, 0.5); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 12px 16px; z-index: 10; color: #d1d5db; font-size: 11px; font-family: 'Courier New', monospace; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); min-width: 200px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <div style="font-weight: 600; color: #f3f4f6; font-size: 12px;">PERFORMANCE</div>
+      <button id="copyPerfButton" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.15); color: #d1d5db; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 10px; font-family: 'Courier New', monospace; transition: background 0.2s;" onmouseover="this.style.background='rgba(255, 255, 255, 0.2)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'">COPY</button>
+    </div>
+    <div style="line-height: 1.6;">
+      <div>FPS: <span id="fpsText" style="color: #f3f4f6;">0</span></div>
+      <div>Frame: <span id="frameTimeText" style="color: #f3f4f6;">0</span> ms</div>
+      <div>Avg: <span id="avgFrameTimeText" style="color: #f3f4f6;">0</span> ms</div>
+      <div>Min: <span id="minFrameTimeText" style="color: #f3f4f6;">0</span> ms</div>
+      <div>Max: <span id="maxFrameTimeText" style="color: #f3f4f6;">0</span> ms</div>
+      <div style="margin-top: 4px; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 4px;">Memory: <span id="memoryText" style="color: #f3f4f6;">N/A</span></div>
+      <div>Heap: <span id="heapText" style="color: #f3f4f6;">N/A</span></div>
+      <div>Limit: <span id="limitText" style="color: #f3f4f6;">N/A</span></div>
+      <div style="margin-top: 4px; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 4px;">Stars: <span id="starCountText" style="color: #f3f4f6;">0</span></div>
+      <div>Objects: <span id="objectCountText" style="color: #f3f4f6;">0</span></div>
+      <div>Canvas: <span id="canvasSizeText" style="color: #f3f4f6;">0x0</span></div>
+    </div>
+  </div>
+
+  <div id="minimap" style="display: none; position: absolute; top: 10px; right: 10px; width: 200px; height: 200px; background: rgba(30, 30, 30, 0.5); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; z-index: 10; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); overflow: hidden;">
+    <canvas id="minimapCanvas" width="200" height="200"></canvas>
+  </div>
+
+  <div id="scanner" style="display: none; position: absolute; top: 220px; right: 10px; width: 300px; background: rgba(30, 30, 30, 0.6); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; padding: 16px; z-index: 10; color: #d1d5db; font-size: 14px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);">
+    <div style="font-weight: 600; font-size: 16px; margin-bottom: 12px; color: #f3f4f6; letter-spacing: 1px;">SCANNER</div>
+    <div id="scannerContent" style="line-height: 1.6;">Click on an object to scan</div>
+  </div>
+
+  <!-- Virtual Control Pad - Separate Window -->
+  <div id="virtualControls" style="display: none; position: absolute; bottom: 10px; right: 10px; width: 150px; background: rgba(30, 30, 30, 0.6); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; padding: 16px; z-index: 10; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);">
+    <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px;">
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; width: 120px;">
+        <div></div>
+        <button class="virtual-key" data-key="w" style="grid-column: 2; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #d1d5db; padding: 12px; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: 600; user-select: none; touch-action: none; transition: all 0.1s;">↑</button>
+        <div></div>
+        <button class="virtual-key" data-key="a" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #d1d5db; padding: 12px; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: 600; user-select: none; touch-action: none; transition: all 0.1s;">←</button>
+        <button class="virtual-key" data-key="s" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #d1d5db; padding: 12px; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: 600; user-select: none; touch-action: none; transition: all 0.1s;">↓</button>
+        <button class="virtual-key" data-key="d" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #d1d5db; padding: 12px; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: 600; user-select: none; touch-action: none; transition: all 0.1s;">→</button>
+      </div>
+      <button class="virtual-key" data-key=" " style="width: 120px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #d1d5db; padding: 12px; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 600; user-select: none; touch-action: none; transition: all 0.1s;">SPACE</button>
+    </div>
+  </div>
+
+  <div id="menu">
+    <h1 style="font-size: 48px; letter-spacing: 4px; text-shadow: 0 0 20px rgba(255, 255, 255, 0.3); color: #f3f4f6;">ORBITAL VELOCITY</h1>
+    <p style="color: #d1d5db; margin-bottom: 30px; font-size: 18px; text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);">Navigate planetary systems with orbital mechanics</p>
+    <button id="startButton" style="font-size: 18px; padding: 14px 36px; margin-top: 20px; font-weight: 500;">Launch Mission</button>
+    <div style="margin-top: 40px; color: #d1d5db; font-size: 14px; line-height: 1.8;">
+      <p style="margin: 6px 0;"><strong style="color: #f3f4f6;">WASD/Arrows:</strong> Thrust & Rotate</p>
+      <p style="margin: 6px 0;"><strong style="color: #f3f4f6;">Mouse:</strong> Aim Weapons</p>
+      <p style="margin: 6px 0;"><strong style="color: #f3f4f6;">Space:</strong> Fire</p>
+      <p style="margin: 18px 0 8px 0; color: #9ca3af; font-size: 13px; opacity: 0.8;">Enter orbits around planets • Explore Lagrange points</p>
+    </div>
+  </div>
+
+  <div id="controls" style="display: none;">
+    <div>WASD/Arrows: Thrust</div>
+    <div>Mouse: Aim</div>
+    <div>Space: Fire</div>
+  </div>
+
+  <script>
+    /***********************
+     * GLOBAL CONSTANTS
+     ***********************/
+    const CANVAS = document.getElementById('gameCanvas');
+    CANVAS.width = window.innerWidth;
+    CANVAS.height = window.innerHeight;
+    
+    // WebGL context for all game graphics
+    let gl = null;
+    try {
+      gl = CANVAS.getContext('webgl') || CANVAS.getContext('experimental-webgl');
+      if (!gl) {
+        throw new Error('WebGL not supported');
+      }
+    } catch (e) {
+      console.error('WebGL not available:', e);
+      alert('WebGL is required for this game. Please use a modern browser.');
+    }
+    
+    // Canvas 2D context for minimap and scanner (GUI elements)
+    const CTX = CANVAS.getContext('2d');
+    
+    /***********************
+     * WEBGL SHADER SETUP
+     ***********************/
+    // WebGL shader programs and buffers
+    let shaderPrograms = {};
+    let buffers = {};
+    
+    // Initialize WebGL
+    function initWebGL() {
+      if (!gl) return;
+      
+      // Set viewport
+      gl.viewport(0, 0, CANVAS.width, CANVAS.height);
+      
+      // Enable blending for transparency
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      
+      // Create shader programs
+      createShaderPrograms();
+      
+      // Create buffers
+      createBuffers();
+    }
+    
+    // Create all shader programs
+    function createShaderPrograms() {
+      // Star shader - with parallax layers, no twinkling
+      shaderPrograms.star = createProgram(
+        // Vertex shader
+        `attribute vec2 a_position;
+         attribute float a_depth;
+         attribute float a_size;
+         attribute vec3 a_color;
+         attribute float a_brightness;
+         
+         uniform vec2 u_camera;
+         uniform vec2 u_resolution;
+         
+         varying vec3 v_color;
+         varying float v_alpha;
+         
+         void main() {
+           // Parallax effect based on depth
+           // Stars with lower depth move slower (further away)
+           vec2 parallaxOffset = u_camera * a_depth;
+           vec2 worldPos = a_position - parallaxOffset;
+           vec2 clipSpace = ((worldPos / u_resolution) * 2.0) - 1.0;
+           clipSpace.y *= -1.0;
+           
+           gl_Position = vec4(clipSpace, 0.0, 1.0);
+           // Clamp point size to prevent rendering issues - use larger minimum
+           gl_PointSize = max(a_size, 1.5);
+           
+           // Constant values - no variation, no twinkling
+           v_alpha = a_brightness;
+           v_color = a_color;
+         }`,
+        // Fragment shader
+        `precision mediump float;
+         
+         varying vec3 v_color;
+         varying float v_alpha;
+         
+         void main() {
+           vec2 coord = gl_PointCoord - vec2(0.5);
+           float dist = length(coord);
+           
+           // Simple circle - no variation
+           float alpha = 1.0 - smoothstep(0.4, 0.5, dist);
+           // Fixed alpha - no twinkling
+           gl_FragColor = vec4(v_color, alpha * v_alpha);
+         }`
+      );
+      
+      
+      // Circle shader (for planets, moons, projectiles, Lagrange points)
+      // Use quads for large circles, point sprites for small ones
+      shaderPrograms.circle = createProgram(
+        // Vertex shader - renders a quad that covers the circle
+        `attribute vec2 a_quadVertex; // Quad vertices in [-1, 1] range
+         attribute vec2 a_position;
+         attribute float a_radius;
+         attribute float a_alpha;
+         
+         uniform vec2 u_camera;
+         uniform vec2 u_resolution;
+         uniform vec3 u_color;
+         
+         varying float v_alpha;
+         varying vec2 v_quadPos;
+         varying float v_radius;
+         
+         void main() {
+           // Expand quad to circle size in world space
+           vec2 worldPos = a_position + a_quadVertex * a_radius - u_camera;
+           vec2 clipSpace = ((worldPos / u_resolution) * 2.0) - 1.0;
+           clipSpace.y *= -1.0;
+           
+           gl_Position = vec4(clipSpace, 0.0, 1.0);
+           
+           v_alpha = a_alpha;
+           v_quadPos = a_quadVertex;
+           v_radius = a_radius;
+         }`,
+        // Fragment shader
+        `precision mediump float;
+         
+         uniform vec3 u_color;
+         uniform float u_outline; // 0.0 = filled, 1.0 = outline only
+         uniform float u_outlineThickness; // Thickness of outline (in quad space)
+         
+         varying float v_alpha;
+         varying vec2 v_quadPos;
+         varying float v_radius;
+         
+         void main() {
+           // Distance from center of quad (in [-1, 1] range)
+           float dist = length(v_quadPos);
+           
+           if (u_outline > 0.5) {
+             // Render as outline (ring)
+             float outerEdge = 1.0;
+             float innerEdge = 1.0 - u_outlineThickness;
+             // Create a ring by being inside outer edge but outside inner edge
+             float outerAlpha = 1.0 - smoothstep(outerEdge - 0.1, outerEdge, dist);
+             float innerAlpha = smoothstep(innerEdge - 0.1, innerEdge, dist);
+             float alpha = outerAlpha * innerAlpha;
+             gl_FragColor = vec4(u_color, alpha * v_alpha);
+           } else {
+             // Render as filled circle
+             float alpha = 1.0 - smoothstep(0.95, 1.0, dist);
+             gl_FragColor = vec4(u_color, alpha * v_alpha);
+           }
+         }`
+      );
+      
+      // Ship shader (triangle)
+      shaderPrograms.ship = createProgram(
+        // Vertex shader
+        `attribute vec2 a_position;
+         
+         uniform vec2 u_camera;
+         uniform vec2 u_resolution;
+         uniform vec2 u_translation;
+         uniform float u_rotation;
+         uniform vec3 u_color;
+         uniform float u_alpha;
+         
+         varying vec3 v_color;
+         varying float v_alpha;
+         
+         void main() {
+           // Rotate around origin (ship points right initially, so rotation is correct)
+           float c = cos(u_rotation);
+           float s = sin(u_rotation);
+           vec2 rotated = vec2(
+             a_position.x * c - a_position.y * s,
+             a_position.x * s + a_position.y * c
+           );
+           
+           vec2 worldPos = rotated + u_translation - u_camera;
+           vec2 clipSpace = ((worldPos / u_resolution) * 2.0) - 1.0;
+           clipSpace.y *= -1.0;
+           
+           gl_Position = vec4(clipSpace, 0.0, 1.0);
+           v_color = u_color;
+           v_alpha = u_alpha;
+         }`,
+        // Fragment shader
+        `precision mediump float;
+         
+         varying vec3 v_color;
+         varying float v_alpha;
+         
+         void main() {
+           gl_FragColor = vec4(v_color, v_alpha);
+         }`
+      );
+      
+      // Impact effect shader (radial gradient)
+      shaderPrograms.impact = createProgram(
+        // Vertex shader
+        `attribute vec2 a_position;
+         attribute float a_radius;
+         attribute float a_alpha;
+         
+         uniform vec2 u_camera;
+         uniform vec2 u_resolution;
+         
+         varying float v_alpha;
+         varying vec2 v_center;
+         varying float v_radius;
+         
+         void main() {
+           vec2 worldPos = a_position - u_camera;
+           vec2 clipSpace = ((worldPos / u_resolution) * 2.0) - 1.0;
+           clipSpace.y *= -1.0;
+           
+           gl_Position = vec4(clipSpace, 0.0, 1.0);
+           gl_PointSize = a_radius * 2.0;
+           
+           v_alpha = a_alpha;
+           v_center = vec2(0.5, 0.5);
+           v_radius = a_radius;
+         }`,
+        // Fragment shader
+        `precision mediump float;
+         
+         varying float v_alpha;
+         varying vec2 v_center;
+         varying float v_radius;
+         
+         void main() {
+           vec2 coord = gl_PointCoord;
+           float dist = length(coord - v_center);
+           
+           // Radial gradient: white center, yellow middle, red outer, transparent edge
+           vec3 color;
+           if (dist < 0.2) {
+             color = vec3(1.0, 1.0, 1.0);
+           } else if (dist < 0.4) {
+             color = mix(vec3(1.0, 1.0, 1.0), vec3(1.0, 0.8, 0.0), (dist - 0.2) / 0.2);
+           } else {
+             color = mix(vec3(1.0, 0.8, 0.0), vec3(1.0, 0.0, 0.0), (dist - 0.4) / 0.1);
+           }
+           
+           float alpha = (1.0 - smoothstep(0.4, 0.5, dist)) * v_alpha;
+           gl_FragColor = vec4(color, alpha);
+         }`
+      );
+    }
+    
+    // Create WebGL buffers
+    function createBuffers() {
+      // Create buffers for each shader type
+      buffers.star = gl.createBuffer();
+      buffers.circle = gl.createBuffer();
+      buffers.circleInstance = gl.createBuffer();
+      buffers.quad = gl.createBuffer();
+      buffers.ship = gl.createBuffer();
+      buffers.impact = gl.createBuffer();
+    }
+    
+    // Helper function to create shader program
+    function createProgram(vertexSource, fragmentSource) {
+      const vertexShader = createShader(gl.VERTEX_SHADER, vertexSource);
+      const fragmentShader = createShader(gl.FRAGMENT_SHADER, fragmentSource);
+      
+      const program = gl.createProgram();
+      gl.attachShader(program, vertexShader);
+      gl.attachShader(program, fragmentShader);
+      gl.linkProgram(program);
+      
+      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        console.error('Program link error:', gl.getProgramInfoLog(program));
+        gl.deleteProgram(program);
+        return null;
+      }
+      
+      return program;
+    }
+    
+    // Helper function to create shader
+    function createShader(type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        console.error('Shader compile error:', gl.getShaderInfoLog(shader));
+        gl.deleteShader(shader);
+        return null;
+      }
+      
+      return shader;
+    }
+
+    // Physics constants
+    const GRAVITY_CONSTANT = 0.5; // Simplified gravity constant
+    const THRUST_FORCE = 0.15;
+    const ROTATION_SPEED = 0.015; // Rotation speed
+    const DAMPING = 0.995; // Lower damping for orbital mechanics
+    const ANGULAR_DAMPING = 0.85; // Much lower damping for rotation (more responsive)
+    const MAX_SPEED = 10;
+    const MAX_ANGULAR_VELOCITY = 0.12; // Limit rotation speed
+    const PROJECTILE_SPEED = 8;
+    const MIN_ORBIT_DISTANCE = 50;
+    const MAX_ORBIT_DISTANCE = 800; // Wider orbit range
+    const ORBIT_ANGLE_TOLERANCE = 0.6; // More forgiving perpendicular check (was 0.3)
+    const ORBIT_SPEED_TOLERANCE = 0.6; // More forgiving speed check (was 0.3)
+
+    // Power costs
+    const POWER_THRUST = 0.3;
+    const POWER_WEAPON = 5;
+    const POWER_REGEN = 0.15;
+
+    // Game balance
+    const INITIAL_POWER = 100;
+    const INITIAL_HEALTH = 100;
+
+    // Game states
+    const STATE_MENU = 'menu';
+    const STATE_PLAYING = 'playing';
+    const STATE_GAME_OVER = 'game_over';
+
+
+    /***********************
+     * GAME STATE
+     ***********************/
+    let gameState = STATE_MENU;
+    let cameraX = 0;
+    let cameraY = 0;
+
+    /***********************
+     * NOISE FUNCTIONS
+     ***********************/
+    // Simplified Perlin-like noise using hash function
+    function noise(x, y) {
+      const n = Math.floor(x) + Math.floor(y) * 57;
+      const nn = (n << 13) ^ n;
+      return (1.0 - ((nn * (nn * nn * 15731 + 789221) + 1376312589) & 0x7fffffff) / 1073741824.0);
+    }
+
+    // 3D noise for object-space sampling (Gustavson-style simplex)
+    function noise3D(x, y, z) {
+      const n = Math.floor(x) + Math.floor(y) * 57 + Math.floor(z) * 131;
+      const nn = (n << 13) ^ n;
+      return (1.0 - ((nn * (nn * nn * 15731 + 789221) + 1376312589) & 0x7fffffff) / 1073741824.0);
+    }
+
+    // Gradient function for 3D simplex noise
+    function grad3D(hash, x, y, z) {
+      const h = hash & 15;
+      const u = h < 8 ? x : y;
+      const v = h < 4 ? y : (h === 12 || h === 14 ? x : z);
+      return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+    }
+
+    // Permutation table for 3D simplex (cached)
+    let perm3D = null;
+    function getPerm3D() {
+      if (perm3D === null) {
+        perm3D = [];
+        for (let i = 0; i < 512; i++) {
+          perm3D[i] = (i * 1103515245 + 12345) & 255;
+        }
+      }
+      return perm3D;
+    }
+
+    // 3D simplex noise (simplified Gustavson-style)
+    function simplex3D(x, y, z) {
+      // Skewing factors for 3D simplex
+      const F3 = 1.0 / 3.0;
+      const G3 = 1.0 / 6.0;
+      
+      // Skew input space to determine which simplex cell we're in
+      const s = (x + y + z) * F3;
+      const i = Math.floor(x + s);
+      const j = Math.floor(y + s);
+      const k = Math.floor(z + s);
+      
+      const t = (i + j + k) * G3;
+      const X0 = i - t;
+      const Y0 = j - t;
+      const Z0 = k - t;
+      const x0 = x - X0;
+      const y0 = y - Y0;
+      const z0 = z - Z0;
+      
+      // Determine which simplex we're in
+      let i1, j1, k1, i2, j2, k2;
+      if (x0 >= y0) {
+        if (y0 >= z0) {
+          i1 = 1; j1 = 0; k1 = 0; i2 = 1; j2 = 1; k2 = 0;
+        } else if (x0 >= z0) {
+          i1 = 1; j1 = 0; k1 = 0; i2 = 1; j2 = 0; k2 = 1;
+        } else {
+          i1 = 0; j1 = 0; k1 = 1; i2 = 1; j2 = 0; k2 = 1;
+        }
+      } else {
+        if (y0 < z0) {
+          i1 = 0; j1 = 0; k1 = 1; i2 = 0; j2 = 1; k2 = 1;
+        } else if (x0 < z0) {
+          i1 = 0; j1 = 1; k1 = 0; i2 = 0; j2 = 1; k2 = 1;
+        } else {
+          i1 = 0; j1 = 1; k1 = 0; i2 = 1; j2 = 1; k2 = 0;
+        }
+      }
+      
+      // Offsets for second corner
+      const x1 = x0 - i1 + G3;
+      const y1 = y0 - j1 + G3;
+      const z1 = z0 - k1 + G3;
+      
+      // Offsets for last corner
+      const x2 = x0 - i2 + 2.0 * G3;
+      const y2 = y0 - j2 + 2.0 * G3;
+      const z2 = z0 - k2 + 2.0 * G3;
+      
+      // Offsets for unskewed cell origin
+      const x3 = x0 - 1.0 + 3.0 * G3;
+      const y3 = y0 - 1.0 + 3.0 * G3;
+      const z3 = z0 - 1.0 + 3.0 * G3;
+      
+      // Hash coordinates of the four simplex corners
+      const p = getPerm3D();
+      const ii = i & 255;
+      const jj = j & 255;
+      const kk = k & 255;
+      
+      const A = p[ii] + jj;
+      const AA = p[A] + kk;
+      const AB = p[A + 1] + kk;
+      const B = p[ii + 1] + jj;
+      const BA = p[B] + kk;
+      const BB = p[B + 1] + kk;
+      
+      // Calculate contribution from each corner with quartic falloff
+      let n0, n1, n2, n3;
+      let t0 = 0.6 - x0 * x0 - y0 * y0 - z0 * z0;
+      if (t0 < 0) n0 = 0.0;
+      else {
+        t0 *= t0;
+        n0 = t0 * t0 * grad3D(p[AA], x0, y0, z0);
+      }
+      
+      let t1 = 0.6 - x1 * x1 - y1 * y1 - z1 * z1;
+      if (t1 < 0) n1 = 0.0;
+      else {
+        t1 *= t1;
+        n1 = t1 * t1 * grad3D(p[BA], x1, y1, z1);
+      }
+      
+      let t2 = 0.6 - x2 * x2 - y2 * y2 - z2 * z2;
+      if (t2 < 0) n2 = 0.0;
+      else {
+        t2 *= t2;
+        n2 = t2 * t2 * grad3D(p[AB], x2, y2, z2);
+      }
+      
+      let t3 = 0.6 - x3 * x3 - y3 * y3 - z3 * z3;
+      if (t3 < 0) n3 = 0.0;
+      else {
+        t3 *= t3;
+        n3 = t3 * t3 * grad3D(p[BB], x3, y3, z3);
+      }
+      
+      // Add contributions from each corner and scale to [-1, 1]
+      return 32.0 * (n0 + n1 + n2 + n3);
+    }
+
+    // Fractal 3D noise (fBm)
+    function fractalNoise3D(x, y, z, octaves = 4, persistence = 0.5) {
+      let value = 0;
+      let amplitude = 1;
+      let frequency = 1;
+      let maxValue = 0;
+
+      for (let i = 0; i < octaves; i++) {
+        value += simplex3D(x * frequency, y * frequency, z * frequency) * amplitude;
+        maxValue += amplitude;
+        amplitude *= persistence;
+        frequency *= 2;
+      }
+
+      return value / maxValue;
+    }
+
+    function smoothNoise(x, y) {
+      const corners = (noise(x - 1, y - 1) + noise(x + 1, y - 1) + noise(x - 1, y + 1) + noise(x + 1, y + 1)) / 16;
+      const sides = (noise(x - 1, y) + noise(x + 1, y) + noise(x, y - 1) + noise(x, y + 1)) / 8;
+      const center = noise(x, y) / 4;
+      return corners + sides + center;
+    }
+
+    function interpolate(a, b, x) {
+      const ft = x * Math.PI;
+      const f = (1 - Math.cos(ft)) * 0.5;
+      return a * (1 - f) + b * f;
+    }
+
+    function perlinNoise(x, y) {
+      const intX = Math.floor(x);
+      const fracX = x - intX;
+      const intY = Math.floor(y);
+      const fracY = y - intY;
+
+      const v1 = smoothNoise(intX, intY);
+      const v2 = smoothNoise(intX + 1, intY);
+      const v3 = smoothNoise(intX, intY + 1);
+      const v4 = smoothNoise(intX + 1, intY + 1);
+
+      const i1 = interpolate(v1, v2, fracX);
+      const i2 = interpolate(v3, v4, fracX);
+
+      return interpolate(i1, i2, fracY);
+    }
+
+    function fractalNoise(x, y, octaves = 4, persistence = 0.5) {
+      let value = 0;
+      let amplitude = 1;
+      let frequency = 1;
+      let maxValue = 0;
+
+      for (let i = 0; i < octaves; i++) {
+        value += perlinNoise(x * frequency, y * frequency) * amplitude;
+        maxValue += amplitude;
+        amplitude *= persistence;
+        frequency *= 2;
+      }
+
+      return value / maxValue;
+    }
+
+    // Worley noise (cellular noise) for craters, continents, cellular patterns
+    function worleyNoise(x, y, numPoints = 9) {
+      const cellX = Math.floor(x);
+      const cellY = Math.floor(y);
+      const localX = x - cellX;
+      const localY = y - cellY;
+      
+      let minDist = Infinity;
+      
+      // Check current cell and 8 neighbors
+      for (let i = -1; i <= 1; i++) {
+        for (let j = -1; j <= 1; j++) {
+          const checkX = cellX + i;
+          const checkY = cellY + j;
+          
+          // Generate pseudo-random points in this cell
+          const seed = (checkX * 73856093) ^ (checkY * 19349663);
+          const rng = (seed * 1103515245 + 12345) & 0x7fffffff;
+          
+          // Generate numPoints random points in this cell
+          for (let p = 0; p < numPoints; p++) {
+            const pointX = checkX + ((rng * (p + 1) * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+            const pointY = checkY + ((rng * (p + 1) * 19349663 + 73856093) & 0x7fffffff) / 0x7fffffff;
+            
+            const dx = (x - pointX);
+            const dy = (y - pointY);
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist < minDist) {
+              minDist = dist;
+            }
+          }
+        }
+      }
+      
+      // Normalize to 0-1 range (assuming max distance is ~sqrt(2))
+      return Math.min(1.0, minDist / 1.5);
+    }
+
+    // Domain warping for more natural terrain
+    function domainWarp(x, y, strength = 1.0) {
+      const warpX = perlinNoise(x * 0.1, y * 0.1) * strength;
+      const warpY = perlinNoise(x * 0.1 + 100, y * 0.1 + 100) * strength;
+      return {
+        x: x + warpX,
+        y: y + warpY
+      };
+    }
+
+    // Simplex-like noise (simplified, better performance than Perlin)
+    function simplexNoise(x, y) {
+      const F2 = 0.5 * (Math.sqrt(3.0) - 1.0);
+      const G2 = (3.0 - Math.sqrt(3.0)) / 6.0;
+      
+      const s = (x + y) * F2;
+      const i = Math.floor(x + s);
+      const j = Math.floor(y + s);
+      
+      const t = (i + j) * G2;
+      const X0 = i - t;
+      const Y0 = j - t;
+      const x0 = x - X0;
+      const y0 = y - Y0;
+      
+      let i1, j1;
+      if (x0 > y0) {
+        i1 = 1;
+        j1 = 0;
+      } else {
+        i1 = 0;
+        j1 = 1;
+      }
+      
+      const x1 = x0 - i1 + G2;
+      const y1 = y0 - j1 + G2;
+      const x2 = x0 - 1.0 + 2.0 * G2;
+      const y2 = y0 - 1.0 + 2.0 * G2;
+      
+      const ii = i & 255;
+      const jj = j & 255;
+      
+      const gi0 = ((ii + jj) * 15731 + 789221) & 0x7fffffff;
+      const gi1 = ((ii + i1 + (jj + j1) * 15731) + 789221) & 0x7fffffff;
+      const gi2 = ((ii + 1 + (jj + 1) * 15731) + 789221) & 0x7fffffff;
+      
+      let t0 = 0.5 - x0 * x0 - y0 * y0;
+      let n0 = 0;
+      if (t0 >= 0) {
+        t0 *= t0;
+        n0 = t0 * t0 * ((gi0 * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+      }
+      
+      let t1 = 0.5 - x1 * x1 - y1 * y1;
+      let n1 = 0;
+      if (t1 >= 0) {
+        t1 *= t1;
+        n1 = t1 * t1 * ((gi1 * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+      }
+      
+      let t2 = 0.5 - x2 * x2 - y2 * y2;
+      let n2 = 0;
+      if (t2 >= 0) {
+        t2 *= t2;
+        n2 = t2 * t2 * ((gi2 * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+      }
+      
+      return 70.0 * (n0 + n1 + n2);
+    }
+
+    // Noise combination utilities
+    function addNoise(n1, n2) {
+      return (n1 + n2) / 2;
+    }
+
+    function multiplyNoise(n1, n2) {
+      return n1 * n2;
+    }
+
+    function blendNoise(n1, n2, factor) {
+      return n1 * (1 - factor) + n2 * factor;
+    }
+
+    function subtractNoise(n1, n2) {
+      return Math.max(0, n1 - n2);
+    }
+
+    /***********************
+     * PLANET TYPE SYSTEM
+     ***********************/
+    const PlanetType = {
+      ROCKY: 'rocky',
+      GAS_GIANT: 'gas_giant',
+      ICE_WORLD: 'ice_world',
+      DESERT: 'desert',
+      OCEAN: 'ocean',
+      VOLCANIC: 'volcanic',
+      TERRA: 'terra'
+    };
+
+
+    /***********************
+     * ENTITY CLASSES
+     ***********************/
+    class Planet {
+      constructor(x, y, mass, radius, color, planetType = null) {
+        this.x = x;
+        this.y = y;
+        this.mass = mass;
+        this.radius = radius;
+        this.color = color;
+      }
+
+
+      // Calculate gravitational force on an object at position (x, y)
+      getGravityForce(x, y) {
+        const dx = this.x - x;
+        const dy = this.y - y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist < this.radius) {
+          // Inside planet - strong repulsion to prevent clipping
+          const force = 0.5;
+          return {
+            fx: (dx / dist) * force,
+            fy: (dy / dist) * force
+          };
+        }
+
+        // Inverse square law gravity
+        const force = (GRAVITY_CONSTANT * this.mass) / (dist * dist);
+        return {
+          fx: (dx / dist) * force,
+          fy: (dy / dist) * force
+        };
+      }
+
+      // Check if a point is inside the planet
+      contains(x, y) {
+        const dx = this.x - x;
+        const dy = this.y - y;
+        return Math.sqrt(dx * dx + dy * dy) < this.radius;
+      }
+
+      // Calculate orbital velocity at a given distance
+      getOrbitalVelocity(distance) {
+        return Math.sqrt((GRAVITY_CONSTANT * this.mass) / distance);
+      }
+
+      draw(ctx, cameraX, cameraY) {
+        const screenX = this.x - cameraX;
+        const screenY = this.y - cameraY;
+
+        // Only draw if planet is on screen (with margin)
+        if (screenX + this.radius < -50 || screenX - this.radius > CANVAS.width + 50 ||
+            screenY + this.radius < -50 || screenY - this.radius > CANVAS.height + 50) {
+          return;
+        }
+
+        // Draw simple grey sphere
+        ctx.fillStyle = '#808080';
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    class Moon {
+      constructor(x, y, mass, radius, color) {
+        this.x = x;
+        this.y = y;
+        this.mass = mass;
+        this.radius = radius;
+        this.color = color;
+      }
+
+      // Calculate gravitational force (same as planet)
+      getGravityForce(x, y) {
+        const dx = this.x - x;
+        const dy = this.y - y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist < this.radius) {
+          const force = 0.5;
+          return {
+            fx: (dx / dist) * force,
+            fy: (dy / dist) * force
+          };
+        }
+
+        const force = (GRAVITY_CONSTANT * this.mass) / (dist * dist);
+        return {
+          fx: (dx / dist) * force,
+          fy: (dy / dist) * force
+        };
+      }
+
+      contains(x, y) {
+        const dx = this.x - x;
+        const dy = this.y - y;
+        return Math.sqrt(dx * dx + dy * dy) < this.radius;
+      }
+
+      getOrbitalVelocity(distance) {
+        return Math.sqrt((GRAVITY_CONSTANT * this.mass) / distance);
+      }
+
+      draw(ctx, cameraX, cameraY) {
+        const screenX = this.x - cameraX;
+        const screenY = this.y - cameraY;
+
+        // Only draw if moon is on screen (with margin)
+        if (screenX + this.radius < -50 || screenX - this.radius > CANVAS.width + 50 ||
+            screenY + this.radius < -50 || screenY - this.radius > CANVAS.height + 50) {
+          return;
+        }
+
+        // Draw simple grey sphere
+        ctx.fillStyle = '#808080';
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    class LagrangePoint {
+      constructor(x, y, type, planet1, planet2) {
+        this.x = x;
+        this.y = y;
+        this.type = type; // 'L1', 'L2', 'L3', 'L4', 'L5'
+        this.planet1 = planet1;
+        this.planet2 = planet2;
+        this.radius = 12; // Increased from 8
+      }
+
+      // Calculate gravitational force at this point (for stability check)
+      getGravityForce(x, y) {
+        const force1 = this.planet1.getGravityForce(x, y);
+        const force2 = this.planet2.getGravityForce(x, y);
+        return {
+          fx: force1.fx + force2.fx,
+          fy: force1.fy + force2.fy
+        };
+      }
+
+      // Check if ship is near this Lagrange point
+      isNear(ship, threshold = 80) {
+        const dx = ship.x - this.x;
+        const dy = ship.y - this.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        return dist < threshold;
+      }
+
+      draw(ctx, cameraX, cameraY) {
+        const screenX = this.x - cameraX;
+        const screenY = this.y - cameraY;
+
+        // Draw subtle outer glow for visibility
+        const time = Date.now() / 1000;
+        const pulse = 1 + Math.sin(time * 2) * 0.1; // Reduced pulse
+        const glowRadius = this.radius * 1.3 * pulse; // Smaller glow radius
+        
+        // Outer glow - more subtle
+        // L4/L5 are stable (cyan), L1/L2/L3 are unstable (yellow)
+        const gradient = ctx.createRadialGradient(screenX, screenY, this.radius, screenX, screenY, glowRadius);
+        if (this.type === 'L4' || this.type === 'L5') {
+          gradient.addColorStop(0, 'rgba(255, 255, 255, 0.12)'); // Stable points - neutral white
+          gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        } else {
+          gradient.addColorStop(0, 'rgba(200, 200, 200, 0.12)'); // Unstable points - neutral gray
+          gradient.addColorStop(1, 'rgba(200, 200, 200, 0)');
+        }
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, glowRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Draw Lagrange point indicator - more subtle but still visible
+        // L4/L5 are stable (white), L1/L2/L3 are unstable (gray)
+        ctx.strokeStyle = this.type === 'L4' || this.type === 'L5' ? 'rgba(255, 255, 255, 0.5)' : 'rgba(200, 200, 200, 0.5)'; // Neutral colors
+        ctx.fillStyle = this.type === 'L4' || this.type === 'L5' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(200, 200, 200, 0.15)'; // Neutral colors
+        ctx.lineWidth = 2; // Reduced from 3
+        
+        // Draw circle
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Draw label - keep clear and readable
+        ctx.fillStyle = this.type === 'L4' || this.type === 'L5' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(200, 200, 200, 0.8)'; // Neutral colors
+        ctx.font = 'bold 12px Courier New'; // Slightly smaller font
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.type, screenX, screenY);
+      }
+    }
+
+    class Station {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.rotation = 0;
+        this.rotationSpeed = 0.002; // Slow rotation
+        // Scaled to be bigger than ship (15) but smaller than moons (15-40)
+        this.torusRadius = 25; // Outer radius of torus (smaller than moons)
+        this.torusThickness = 4; // Thickness of torus ring
+        this.centralRodLength = 15; // Length of central rod
+        this.centralRodWidth = 1.5; // Width of central rod
+        this.spokeCount = 6; // Number of spokes/rods
+        this.spokeLength = 20; // Length of spokes from center to torus
+        this.spokeWidth = 1; // Width of spokes
+      }
+      
+      update(deltaTime) {
+        // Slow rotation
+        this.rotation += this.rotationSpeed;
+      }
+      
+      // Get overall size for click detection
+      get size() {
+        return this.torusRadius + this.torusThickness;
+      }
+    }
+
+    class Ship {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.vx = 0;
+        this.vy = 0;
+        this.rotation = 0;
+        this.angularVelocity = 0;
+        this.power = INITIAL_POWER;
+        this.health = INITIAL_HEALTH;
+        this.size = 15;
+        this.thrusting = false;
+        this.lastShot = 0;
+        this.shotCooldown = 200;
+        this.orbitingPlanet = null;
+        this.orbitDistance = 0;
+        this.nearOrbit = null; // Track if close to orbit for visual feedback
+        this.atLagrangePoint = null; // Track if at a Lagrange point
+        this.collisionWarning = null; // Track collision course with planet/moon
+      }
+
+      update(deltaTime, planets, moons, lagrangePoints) {
+        // Check if ship is at a Lagrange point (wider detection)
+        this.atLagrangePoint = null;
+        for (let lp of lagrangePoints) {
+          if (lp.isNear(this, 80)) { // Increased from 25
+            this.atLagrangePoint = lp;
+            break;
+          }
+        }
+
+        // Apply gravity from all planets and moons
+        let totalFx = 0;
+        let totalFy = 0;
+
+        planets.forEach(planet => {
+          const gravity = planet.getGravityForce(this.x, this.y);
+          totalFx += gravity.fx;
+          totalFy += gravity.fy;
+        });
+
+        moons.forEach(moon => {
+          const gravity = moon.getGravityForce(this.x, this.y);
+          totalFx += gravity.fx;
+          totalFy += gravity.fy;
+        });
+
+        // Apply gravitational acceleration
+        this.vx += totalFx;
+        this.vy += totalFy;
+
+        // Orbit maintenance - automatic when in stable orbit
+        if (this.orbitingPlanet) {
+          const dx = this.x - this.orbitingPlanet.x;
+          const dy = this.y - this.orbitingPlanet.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          // Update orbit distance during orbit maintenance
+          this.orbitDistance = dist;
+          
+          if (dist >= MIN_ORBIT_DISTANCE && dist <= MAX_ORBIT_DISTANCE) {
+            const toPlanetX = dx / dist;
+            const toPlanetY = dy / dist;
+            const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+            
+            if (speed > 0.1) {
+              const velocityDirX = this.vx / speed;
+              const velocityDirY = this.vy / speed;
+              const dotProduct = toPlanetX * velocityDirX + toPlanetY * velocityDirY;
+              
+              // Maintain perpendicular velocity (stronger correction when in orbit)
+              const targetVelX = -toPlanetY * speed;
+              const targetVelY = toPlanetX * speed;
+              const correction = 0.15; // Stronger correction to maintain orbit
+              this.vx += (targetVelX - this.vx) * correction;
+              this.vy += (targetVelY - this.vy) * correction;
+              
+              // Maintain orbital velocity
+              const orbitalVel = this.orbitingPlanet.getOrbitalVelocity(dist);
+              const speedDiff = orbitalVel - speed;
+              if (Math.abs(speedDiff) > 0.05) {
+                const speedCorrection = Math.sign(speedDiff) * 0.05;
+                const velMagnitude = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                if (velMagnitude > 0) {
+                  this.vx += (this.vx / velMagnitude) * speedCorrection;
+                  this.vy += (this.vy / velMagnitude) * speedCorrection;
+                }
+              }
+            }
+          }
+        }
+        // Orbit assist - subtle help when close to orbit
+        else if (this.nearOrbit) {
+          const dx = this.x - this.nearOrbit.x;
+          const dy = this.y - this.nearOrbit.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          if (dist >= MIN_ORBIT_DISTANCE && dist <= MAX_ORBIT_DISTANCE) {
+            const toPlanetX = dx / dist;
+            const toPlanetY = dy / dist;
+            const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+            
+            if (speed > 0.1) {
+              const velocityDirX = this.vx / speed;
+              const velocityDirY = this.vy / speed;
+              const dotProduct = toPlanetX * velocityDirX + toPlanetY * velocityDirY;
+              
+              // If moving too much toward/away from planet, apply subtle correction
+              if (Math.abs(dotProduct) > 0.3) {
+                // Subtle velocity correction toward perpendicular
+                const targetVelX = -toPlanetY * speed;
+                const targetVelY = toPlanetX * speed;
+                const correction = 0.02; // Very subtle assist
+                this.vx += (targetVelX - this.vx) * correction;
+                this.vy += (targetVelY - this.vy) * correction;
+              }
+              
+              // Speed correction toward orbital velocity
+              const orbitalVel = this.nearOrbit.getOrbitalVelocity(dist);
+              const speedDiff = orbitalVel - speed;
+              if (Math.abs(speedDiff) > 0.1) {
+                const speedCorrection = Math.sign(speedDiff) * 0.01;
+                const velMagnitude = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                if (velMagnitude > 0) {
+                  this.vx += (this.vx / velMagnitude) * speedCorrection;
+                  this.vy += (this.vy / velMagnitude) * speedCorrection;
+                }
+              }
+            }
+          }
+        }
+
+        // Lagrange point mechanics - L4/L5 are stable points (parking zones)
+        if (this.atLagrangePoint) {
+          const dx = this.atLagrangePoint.x - this.x;
+          const dy = this.atLagrangePoint.y - this.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          if (dist > 0) {
+            if (this.atLagrangePoint.type === 'L4' || this.atLagrangePoint.type === 'L5') {
+              // Stable Lagrange points - minimal pull, just damping for stability
+              // Only very subtle pull if far from center
+              if (dist > 20) {
+                const pullForce = 0.01; // Very minimal pull
+                this.vx += (dx / dist) * pullForce;
+                this.vy += (dy / dist) * pullForce;
+              }
+              
+              // Strong damping at stable Lagrange points (parking effect)
+              this.vx *= 0.96;
+              this.vy *= 0.96;
+            } else {
+              // L1/L2 have minimal effect
+              const pullForce = 0.02;
+              this.vx += (dx / dist) * pullForce;
+              this.vy += (dy / dist) * pullForce;
+              
+              this.vx *= 0.98;
+              this.vy *= 0.98;
+            }
+          }
+        }
+
+        // Apply damping (lower for orbital mechanics)
+        this.vx *= DAMPING;
+        this.vy *= DAMPING;
+        this.angularVelocity *= ANGULAR_DAMPING; // Use separate angular damping for more responsive rotation
+
+        // Limit speed
+        const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+        if (speed > MAX_SPEED) {
+          this.vx = (this.vx / speed) * MAX_SPEED;
+          this.vy = (this.vy / speed) * MAX_SPEED;
+        }
+
+        // Limit angular velocity
+        if (Math.abs(this.angularVelocity) > MAX_ANGULAR_VELOCITY) {
+          this.angularVelocity = Math.sign(this.angularVelocity) * MAX_ANGULAR_VELOCITY;
+        }
+
+        // Update position
+        this.x += this.vx;
+        this.y += this.vy;
+        this.rotation += this.angularVelocity;
+
+        // Check for orbital state (planets and moons)
+        this.updateOrbitState(planets, moons);
+
+        // Check for collision course
+        this.checkCollisionCourse(planets, moons);
+
+        // Power regeneration (always regen, but slower when thrusting)
+        if (this.power < 100) {
+          const regenRate = this.thrusting ? POWER_REGEN * 0.1 : POWER_REGEN;
+          this.power = Math.min(100, this.power + regenRate * deltaTime);
+        }
+        
+        // Reset thrusting flag after update
+        this.thrusting = false;
+
+        // Prevent collision with planets and moons
+        planets.forEach(planet => {
+          if (planet.contains(this.x, this.y)) {
+            // Push ship away from planet center
+            const dx = this.x - planet.x;
+            const dy = this.y - planet.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 0) {
+              const pushDistance = planet.radius + this.size - dist;
+              this.x += (dx / dist) * pushDistance;
+              this.y += (dy / dist) * pushDistance;
+              // Bounce velocity
+              this.vx *= -0.5;
+              this.vy *= -0.5;
+              this.takeDamage(5);
+              // Create impact effect
+              impacts.push(new ImpactEffect(this.x, this.y, 25));
+            }
+          }
+        });
+
+        moons.forEach(moon => {
+          if (moon.contains(this.x, this.y)) {
+            const dx = this.x - moon.x;
+            const dy = this.y - moon.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 0) {
+              const pushDistance = moon.radius + this.size - dist;
+              this.x += (dx / dist) * pushDistance;
+              this.y += (dy / dist) * pushDistance;
+              this.vx *= -0.5;
+              this.vy *= -0.5;
+              this.takeDamage(3);
+              // Create impact effect
+              impacts.push(new ImpactEffect(this.x, this.y, 20));
+            }
+          }
+        });
+      }
+
+      checkCollisionCourse(planets, moons) {
+        this.collisionWarning = null;
+        
+        const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+        if (speed < 0.1) return; // Not moving, no collision course
+        
+        const velocityDirX = this.vx / speed;
+        const velocityDirY = this.vy / speed;
+        
+        // Check planets
+        for (let planet of planets) {
+          const dx = planet.x - this.x;
+          const dy = planet.y - this.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          // Only warn if within reasonable distance
+          if (dist > 500) continue;
+          
+          const toPlanetX = dx / dist;
+          const toPlanetY = dy / dist;
+          
+          // Check if velocity is pointing toward planet
+          const dotProduct = velocityDirX * toPlanetX + velocityDirY * toPlanetY;
+          
+          // If moving toward planet (dot product > 0.7 means roughly aligned)
+          if (dotProduct > 0.7) {
+            // Calculate time to impact (simplified)
+            const timeToImpact = dist / speed;
+            
+            // Warn if collision within reasonable time and distance
+            if (timeToImpact < 300 && dist < planet.radius * 3) {
+              this.collisionWarning = planet;
+              return; // Only show one warning at a time
+            }
+          }
+        }
+        
+        // Check moons
+        for (let moon of moons) {
+          const dx = moon.x - this.x;
+          const dy = moon.y - this.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          if (dist > 500) continue;
+          
+          const toMoonX = dx / dist;
+          const toMoonY = dy / dist;
+          
+          const dotProduct = velocityDirX * toMoonX + velocityDirY * toMoonY;
+          
+          if (dotProduct > 0.7) {
+            const timeToImpact = dist / speed;
+            
+            if (timeToImpact < 300 && dist < moon.radius * 3) {
+              this.collisionWarning = moon;
+              return;
+            }
+          }
+        }
+      }
+
+      updateOrbitState(planets, moons) {
+        this.orbitingPlanet = null;
+        this.orbitDistance = 0;
+        this.nearOrbit = null; // Track if we're close to orbit for visual feedback
+
+        // Check planets
+        planets.forEach(planet => {
+          const dx = this.x - planet.x;
+          const dy = this.y - planet.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist >= MIN_ORBIT_DISTANCE && dist <= MAX_ORBIT_DISTANCE) {
+            const toPlanetX = dx / dist;
+            const toPlanetY = dy / dist;
+            const velocityX = this.vx;
+            const velocityY = this.vy;
+            const speed = Math.sqrt(velocityX * velocityX + velocityY * velocityY);
+
+            if (speed > 0.1) {
+              const velocityDirX = velocityX / speed;
+              const velocityDirY = velocityY / speed;
+              const dotProduct = toPlanetX * velocityDirX + toPlanetY * velocityDirY;
+
+              const orbitalVel = planet.getOrbitalVelocity(dist);
+              const speedDiff = Math.abs(speed - orbitalVel);
+              const speedTolerance = orbitalVel * ORBIT_SPEED_TOLERANCE;
+
+              const angleOk = Math.abs(dotProduct) < ORBIT_ANGLE_TOLERANCE;
+              const speedOk = speedDiff < speedTolerance;
+
+              if (angleOk && speedOk) {
+                this.orbitingPlanet = planet;
+                this.orbitDistance = dist;
+              } else if (angleOk || speedOk) {
+                this.nearOrbit = planet;
+              }
+            }
+          }
+        });
+
+        // Check moons
+        moons.forEach(moon => {
+          const dx = this.x - moon.x;
+          const dy = this.y - moon.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist >= MIN_ORBIT_DISTANCE && dist <= MAX_ORBIT_DISTANCE) {
+            const toMoonX = dx / dist;
+            const toMoonY = dy / dist;
+            const velocityX = this.vx;
+            const velocityY = this.vy;
+            const speed = Math.sqrt(velocityX * velocityX + velocityY * velocityY);
+
+            if (speed > 0.1) {
+              const velocityDirX = velocityX / speed;
+              const velocityDirY = velocityY / speed;
+              const dotProduct = toMoonX * velocityDirX + toMoonY * velocityDirY;
+
+              const orbitalVel = moon.getOrbitalVelocity(dist);
+              const speedDiff = Math.abs(speed - orbitalVel);
+              const speedTolerance = orbitalVel * ORBIT_SPEED_TOLERANCE;
+
+              const angleOk = Math.abs(dotProduct) < ORBIT_ANGLE_TOLERANCE;
+              const speedOk = speedDiff < speedTolerance;
+
+              if (angleOk && speedOk) {
+                this.orbitingPlanet = moon;
+                this.orbitDistance = dist;
+              } else if (angleOk || speedOk) {
+                this.nearOrbit = moon;
+              }
+            }
+          }
+        });
+      }
+
+      thrust() {
+        if (this.power > 0) {
+          const thrustX = Math.cos(this.rotation) * THRUST_FORCE;
+          const thrustY = Math.sin(this.rotation) * THRUST_FORCE;
+          this.vx += thrustX;
+          this.vy += thrustY;
+          this.power = Math.max(0, this.power - POWER_THRUST);
+          this.thrusting = true;
+        }
+      }
+
+      rotateLeft() {
+        this.angularVelocity -= ROTATION_SPEED;
+      }
+
+      rotateRight() {
+        this.angularVelocity += ROTATION_SPEED;
+      }
+
+      fireWeapon() {
+        const now = Date.now();
+        if (now - this.lastShot < this.shotCooldown || this.power < POWER_WEAPON) {
+          return null;
+        }
+
+        this.power = Math.max(0, this.power - POWER_WEAPON);
+        this.lastShot = now;
+
+        // Fire in the direction the ship is pointing
+        const angle = this.rotation;
+
+        // Recoil
+        this.vx -= Math.cos(angle) * 0.2;
+        this.vy -= Math.sin(angle) * 0.2;
+
+        return new Projectile(this.x, this.y, angle, PROJECTILE_SPEED);
+      }
+
+      takeDamage(amount) {
+        this.health = Math.max(0, this.health - amount);
+        if (this.health <= 0) {
+          gameState = STATE_GAME_OVER;
+        }
+      }
+
+      draw(ctx, cameraX, cameraY) {
+        const screenX = this.x - cameraX;
+        const screenY = this.y - cameraY;
+
+        ctx.save();
+        ctx.translate(screenX, screenY);
+        ctx.rotate(this.rotation);
+
+        // Ship body (triangle)
+        ctx.fillStyle = this.power > 0 ? 'rgba(255, 255, 255, 0.9)' : 'rgba(107, 114, 128, 0.6)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(this.size, 0);
+        ctx.lineTo(-this.size, -this.size * 0.7);
+        ctx.lineTo(-this.size * 0.5, 0);
+        ctx.lineTo(-this.size, this.size * 0.7);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Thrust effect
+        if (this.thrusting && this.power > 0) {
+          ctx.fillStyle = 'rgba(251, 191, 36, 0.8)';
+          ctx.beginPath();
+          ctx.moveTo(-this.size, 0);
+          ctx.lineTo(-this.size * 1.5, -this.size * 0.3);
+          ctx.lineTo(-this.size * 1.5, this.size * 0.3);
+          ctx.closePath();
+          ctx.fill();
+        }
+
+        ctx.restore();
+        this.thrusting = false;
+
+        // Draw collision warning indicator
+        if (this.collisionWarning) {
+          ctx.save();
+          const shipScreenX = this.x - cameraX;
+          const shipScreenY = this.y - cameraY;
+          
+          // Draw warning line to collision target
+          const time = Date.now() / 200;
+          const pulse = Math.sin(time) * 0.3 + 0.7;
+          ctx.strokeStyle = `rgba(255, 0, 0, ${pulse})`;
+          ctx.lineWidth = 3;
+          ctx.setLineDash([10, 5]);
+          ctx.beginPath();
+          ctx.moveTo(shipScreenX, shipScreenY);
+          ctx.lineTo(
+            this.collisionWarning.x - cameraX,
+            this.collisionWarning.y - cameraY
+          );
+          ctx.stroke();
+          ctx.setLineDash([]);
+          
+          // Draw warning circle around target
+          ctx.strokeStyle = `rgba(255, 0, 0, ${pulse * 0.5})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(
+            this.collisionWarning.x - cameraX,
+            this.collisionWarning.y - cameraY,
+            this.collisionWarning.radius + 10,
+            0,
+            Math.PI * 2
+          );
+          ctx.stroke();
+          
+          ctx.restore();
+        }
+
+        // Draw orbit indicator
+        if (this.orbitingPlanet) {
+          ctx.save();
+          const dx = this.orbitingPlanet.x - this.x;
+          const dy = this.orbitingPlanet.y - this.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+          ctx.lineWidth = 3;
+          ctx.setLineDash([5, 5]);
+          // Use consistent dash offset to prevent flashing
+          ctx.lineDashOffset = 0;
+          ctx.beginPath();
+          ctx.arc(
+            this.orbitingPlanet.x - cameraX,
+            this.orbitingPlanet.y - cameraY,
+            dist,
+            0,
+            Math.PI * 2
+          );
+          ctx.stroke();
+          ctx.restore();
+        } else if (this.nearOrbit) {
+          // Visual feedback when close to orbit
+          ctx.save();
+          const dx = this.nearOrbit.x - this.x;
+          const dy = this.nearOrbit.y - this.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([3, 3]);
+          // Use consistent dash offset to prevent flashing
+          ctx.lineDashOffset = 0;
+          ctx.beginPath();
+          ctx.arc(
+            this.nearOrbit.x - cameraX,
+            this.nearOrbit.y - cameraY,
+            dist,
+            0,
+            Math.PI * 2
+          );
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+    }
+
+    class ImpactEffect {
+      constructor(x, y, size = 20) {
+        this.x = x;
+        this.y = y;
+        this.size = size;
+        this.maxSize = size * 2;
+        this.age = 0;
+        this.lifetime = 20; // frames
+        this.alpha = 1;
+      }
+
+      update() {
+        this.age++;
+        this.alpha = 1 - (this.age / this.lifetime);
+        return this.age < this.lifetime;
+      }
+
+      draw(ctx, cameraX, cameraY) {
+        const screenX = this.x - cameraX;
+        const screenY = this.y - cameraY;
+        
+        const currentSize = this.size + (this.maxSize - this.size) * (this.age / this.lifetime);
+        
+        // Outer flash
+        const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, currentSize);
+        gradient.addColorStop(0, `rgba(255, 255, 255, ${this.alpha * 0.8})`);
+        gradient.addColorStop(0.5, `rgba(255, 200, 0, ${this.alpha * 0.4})`);
+        gradient.addColorStop(1, `rgba(255, 0, 0, 0)`);
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, currentSize, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Inner bright core
+        ctx.fillStyle = `rgba(255, 255, 255, ${this.alpha})`;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, currentSize * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    class Projectile {
+      constructor(x, y, angle, speed) {
+        this.x = x;
+        this.y = y;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+        this.radius = 3;
+        this.lifetime = 120;
+        this.age = 0;
+      }
+
+      update(planets, moons) {
+        // Apply gravity to projectiles
+        let totalFx = 0;
+        let totalFy = 0;
+
+        planets.forEach(planet => {
+          const gravity = planet.getGravityForce(this.x, this.y);
+          totalFx += gravity.fx * 0.5; // Projectiles affected less by gravity
+          totalFy += gravity.fy * 0.5;
+        });
+
+        moons.forEach(moon => {
+          const gravity = moon.getGravityForce(this.x, this.y);
+          totalFx += gravity.fx * 0.5;
+          totalFy += gravity.fy * 0.5;
+        });
+
+        this.vx += totalFx;
+        this.vy += totalFy;
+
+        this.x += this.vx;
+        this.y += this.vy;
+        this.age++;
+
+        // Remove if too old
+        if (this.age >= this.lifetime) {
+          return false;
+        }
+
+        // Remove if hit planet
+        for (let planet of planets) {
+          if (planet.contains(this.x, this.y)) {
+            impacts.push(new ImpactEffect(this.x, this.y, 15));
+            return false;
+          }
+        }
+
+        // Remove if hit moon
+        for (let moon of moons) {
+          if (moon.contains(this.x, this.y)) {
+            impacts.push(new ImpactEffect(this.x, this.y, 12));
+            return false;
+          }
+        }
+
+        return true;
+      }
+
+      draw(ctx, cameraX, cameraY) {
+        const screenX = this.x - cameraX;
+        const screenY = this.y - cameraY;
+
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    /***********************
+     * STARFIELD SYSTEM
+     ***********************/
+    // Simple star data structure - no class, just plain objects
+    // Stars are static, no twinkling, no parallax complexity
+
+    /***********************
+     * GAME OBJECTS
+     ***********************/
+    let ship = null;
+    let planets = [];
+    let moons = [];
+    let projectiles = [];
+    let lagrangePoints = [];
+    let stations = [];
+    let impacts = [];
+    let stars = [];
+    let starBufferDirty = true;
+    let starVertexBuffer = null;
+
+    /***********************
+     * INPUT HANDLING
+     ***********************/
+    const keys = {};
+    let mouseX = 0;
+    let mouseY = 0;
+
+    document.addEventListener('keydown', (e) => {
+      keys[e.key.toLowerCase()] = true;
+      keys[e.code] = true;
+    });
+
+    document.addEventListener('keyup', (e) => {
+      keys[e.key.toLowerCase()] = false;
+      keys[e.code] = false;
+    });
+    
+    // Touch support and virtual controls
+    const virtualKeys = document.querySelectorAll('.virtual-key');
+    virtualKeys.forEach(button => {
+      const key = button.getAttribute('data-key');
+      
+      // Mouse events
+      button.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        keys[key] = true;
+        button.style.background = 'rgba(255, 255, 255, 0.25)';
+        button.style.transform = 'scale(0.95)';
+      });
+      
+      button.addEventListener('mouseup', (e) => {
+        e.preventDefault();
+        keys[key] = false;
+        button.style.background = 'rgba(255, 255, 255, 0.1)';
+        button.style.transform = 'scale(1)';
+      });
+      
+      button.addEventListener('mouseleave', (e) => {
+        keys[key] = false;
+        button.style.background = 'rgba(255, 255, 255, 0.1)';
+        button.style.transform = 'scale(1)';
+      });
+      
+      // Touch events
+      button.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        keys[key] = true;
+        button.style.background = 'rgba(255, 255, 255, 0.25)';
+        button.style.transform = 'scale(0.95)';
+      });
+      
+      button.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        keys[key] = false;
+        button.style.background = 'rgba(255, 255, 255, 0.1)';
+        button.style.transform = 'scale(1)';
+      });
+      
+      button.addEventListener('touchcancel', (e) => {
+        e.preventDefault();
+        keys[key] = false;
+        button.style.background = 'rgba(255, 255, 255, 0.1)';
+        button.style.transform = 'scale(1)';
+      });
+    });
+    
+    // Prevent default touch behaviors on canvas (scrolling, zooming)
+    CANVAS.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+    }, { passive: false });
+    
+    CANVAS.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+    }, { passive: false });
+
+    CANVAS.addEventListener('mousemove', (e) => {
+      const rect = CANVAS.getBoundingClientRect();
+      mouseX = e.clientX - rect.left + cameraX;
+      mouseY = e.clientY - rect.top + cameraY;
+    });
+
+    CANVAS.addEventListener('click', (e) => {
+      if (gameState !== STATE_PLAYING) return;
+      
+      const rect = CANVAS.getBoundingClientRect();
+      const clickX = e.clientX - rect.left + cameraX;
+      const clickY = e.clientY - rect.top + cameraY;
+      
+      scanObject(clickX, clickY);
+    });
+    
+    // Touch support for clicking/scanning
+    CANVAS.addEventListener('touchend', (e) => {
+      if (gameState !== STATE_PLAYING) return;
+      
+      e.preventDefault();
+      const rect = CANVAS.getBoundingClientRect();
+      const touch = e.changedTouches[0];
+      const clickX = touch.clientX - rect.left + cameraX;
+      const clickY = touch.clientY - rect.top + cameraY;
+      
+      scanObject(clickX, clickY);
+    });
+
+    /***********************
+     * LAGRANGE POINT CALCULATION
+     ***********************/
+    function calculateLagrangePoints() {
+      lagrangePoints = [];
+      
+      // Calculate Lagrange points for planet-moon pairs (where moon orbits planet)
+      // In astronomy, Lagrange points are calculated for systems where one body orbits another
+      planets.forEach(planet => {
+        moons.forEach(moon => {
+          // Check if moon is associated with this planet (within reasonable distance)
+          const dx = moon.x - planet.x;
+          const dy = moon.y - planet.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          // Only calculate if moon is reasonably close to planet (orbital relationship)
+          if (dist > 2000) return; // Skip if too far
+          
+          // Planet is primary (larger), moon is secondary (smaller)
+          const primary = planet;
+          const secondary = moon;
+          
+          const angle = Math.atan2(dy, dx);
+          const massRatio = secondary.mass / (primary.mass + secondary.mass);
+          
+          // L1: Between the two bodies (closer to smaller body/moon)
+          // Located between Earth and Moon, closer to Moon
+          const l1Dist = dist * (1 - Math.pow(massRatio / 3, 1/3));
+          const l1X = primary.x + Math.cos(angle) * l1Dist;
+          const l1Y = primary.y + Math.sin(angle) * l1Dist;
+          lagrangePoints.push(new LagrangePoint(l1X, l1Y, 'L1', primary, secondary));
+          
+          // L2: Beyond the smaller body (moon), on the opposite side from planet
+          // Located beyond Moon, away from Earth
+          const l2Dist = dist * (1 + Math.pow(massRatio / 3, 1/3));
+          const l2X = primary.x + Math.cos(angle) * l2Dist;
+          const l2Y = primary.y + Math.sin(angle) * l2Dist;
+          lagrangePoints.push(new LagrangePoint(l2X, l2Y, 'L2', primary, secondary));
+          
+          // L3: Beyond the larger body (planet), on the opposite side from moon
+          // Located beyond Earth, away from Moon
+          const l3Dist = dist * (1 + Math.pow(massRatio / 3, 1/3));
+          const l3X = primary.x - Math.cos(angle) * l3Dist; // Opposite direction
+          const l3Y = primary.y - Math.sin(angle) * l3Dist;
+          lagrangePoints.push(new LagrangePoint(l3X, l3Y, 'L3', primary, secondary));
+          
+          // L4: 60 degrees ahead of smaller body (moon) in its orbit
+          // Forms equilateral triangle with planet and moon
+          const l4Angle = angle + Math.PI / 3; // 60 degrees ahead
+          const l4Dist = dist; // Same distance as moon from planet
+          const l4X = primary.x + Math.cos(l4Angle) * l4Dist;
+          const l4Y = primary.y + Math.sin(l4Angle) * l4Dist;
+          lagrangePoints.push(new LagrangePoint(l4X, l4Y, 'L4', primary, secondary));
+          
+          // L5: 60 degrees behind smaller body (moon) in its orbit
+          // Forms equilateral triangle with planet and moon
+          const l5Angle = angle - Math.PI / 3; // 60 degrees behind
+          const l5Dist = dist; // Same distance as moon from planet
+          const l5X = primary.x + Math.cos(l5Angle) * l5Dist;
+          const l5Y = primary.y + Math.sin(l5Angle) * l5Dist;
+          lagrangePoints.push(new LagrangePoint(l5X, l5Y, 'L5', primary, secondary));
+        });
+      });
+    }
+
+    /***********************
+     * GAME INITIALIZATION
+     ***********************/
+    function initGame() {
+      // Create ship at center
+      ship = new Ship(CANVAS.width / 2, CANVAS.height / 2);
+
+      // Create planets (doubled scale)
+      const planet1 = new Planet(800, 400, 120, 120, '#808080'); // Neutral gray planet (radius 60 -> 120)
+      const planet2 = new Planet(2500, 600, 150, 140, '#e24a4a'); // Red planet (radius 70 -> 140)
+      planets = [planet1, planet2];
+
+      // Create moons (stationary, doubled distance and doubled scale)
+      // Planet 1 with 1 moon
+      moons = [
+        new Moon(planet1.x + 500, planet1.y, 20, 36, '#8888ff'), // Moon 1 (distance 250 -> 500, radius 18 -> 36)
+        // Planet 2 with 2 moons
+        new Moon(planet2.x + 440, planet2.y, 15, 32, '#ff8888'), // Moon 2 (distance 220 -> 440, radius 16 -> 32)
+        new Moon(planet2.x + 560, planet2.y + 100, 25, 40, '#ffaa88')  // Moon 3 (distance 280 -> 560, radius 20 -> 40)
+      ];
+
+      // Generate simple static starfield - no twinkling, no parallax
+      stars = [];
+      starBufferDirty = true; // Mark buffer as needing regeneration
+      const starCount = 20000;
+      const starFieldSize = 12000;
+      
+      // Simple color palette
+      const starColors = [
+        [1.0, 1.0, 0.9],   // Yellow-white
+        [1.0, 0.95, 0.8],  // Warm white
+        [1.0, 0.9, 0.7],   // Cream
+        [1.0, 0.85, 0.6],  // Light orange
+        [1.0, 0.7, 0.5],   // Orange
+        [1.0, 0.6, 0.4],   // Red-orange
+        [1.0, 0.5, 0.4],   // Red
+        [1.0, 1.0, 1.0],   // White
+        [0.9, 0.9, 0.95],  // Blue-white
+      ];
+      
+      for (let i = 0; i < starCount; i++) {
+        const x = (Math.random() - 0.5) * starFieldSize;
+        const y = (Math.random() - 0.5) * starFieldSize;
+        
+        // Parallax depth layer (0.0 = far background, 1.0 = foreground)
+        // Distribute stars across multiple parallax layers
+        const depthRand = Math.random();
+        let depth;
+        if (depthRand < 0.4) {
+          depth = 0.2; // 40% far background stars (move very slowly)
+        } else if (depthRand < 0.7) {
+          depth = 0.4; // 30% mid-background stars
+        } else if (depthRand < 0.9) {
+          depth = 0.6; // 20% mid-foreground stars
+        } else {
+          depth = 0.8; // 10% foreground stars (move faster)
+        }
+        
+        // Simple size distribution - ensure minimum visible size
+        const sizeRand = Math.random();
+        const size = sizeRand < 0.7 ? Math.random() * 0.5 + 0.5 : // 0.5 to 1.0
+                     sizeRand < 0.9 ? Math.random() * 0.5 + 1.0 : // 1.0 to 1.5
+                     Math.random() * 0.5 + 1.5; // 1.5 to 2.0
+        
+        // Simple brightness - ensure minimum visibility
+        // Further stars are dimmer
+        const brightness = (Math.random() * 0.3 + 0.7) * (0.5 + depth * 0.5); // 0.35 to 1.0
+        
+        // Random color from palette
+        const color = starColors[Math.floor(Math.random() * starColors.length)];
+        
+        stars.push({
+          x: x,
+          y: y,
+          depth: depth,
+          size: size,
+          brightness: brightness,
+          color: color
+        });
+      }
+
+      // Calculate Lagrange points
+      calculateLagrangePoints();
+      
+      // Create space station at L1 of Planet 2 and Moon 1
+      // Planet 2 is at index 1, Moon 1 is at index 1 (first moon of Planet 2)
+      const stationPlanet2 = planets[1];
+      const stationMoon1 = moons[1]; // First moon of Planet 2 (second moon in array)
+      
+      // Find L1 Lagrange point for Planet 2 and Moon 1
+      for (let lp of lagrangePoints) {
+        if (lp.type === 'L1' && 
+            ((lp.planet1 === stationPlanet2 && lp.planet2 === stationMoon1) || 
+             (lp.planet1 === stationMoon1 && lp.planet2 === stationPlanet2))) {
+          stations.push(new Station(lp.x, lp.y));
+          break;
+        }
+      }
+
+      projectiles = [];
+      impacts = [];
+      gameState = STATE_PLAYING;
+      cameraX = 0;
+      cameraY = 0;
+
+      document.getElementById('menu').style.display = 'none';
+      document.getElementById('ui').style.display = 'block';
+      document.getElementById('controls').style.display = 'block';
+      document.getElementById('minimap').style.display = 'block';
+      document.getElementById('scanner').style.display = 'block';
+      document.getElementById('virtualControls').style.display = 'block';
+      document.getElementById('performanceMonitor').style.display = 'block';
+      
+      // Initialize WebGL
+      initWebGL();
+    }
+
+    /***********************
+     * GAME UPDATE
+     ***********************/
+    function update(deltaTime) {
+      if (gameState !== STATE_PLAYING) return;
+
+      // Handle input
+      if (keys['w'] || keys['arrowup'] || keys['KeyW']) {
+        ship.thrust();
+      }
+      if (keys['a'] || keys['arrowleft'] || keys['KeyA']) {
+        ship.rotateLeft();
+      }
+      if (keys['d'] || keys['arrowright'] || keys['KeyD']) {
+        ship.rotateRight();
+      }
+      if (keys['s'] || keys['arrowdown'] || keys['KeyS']) {
+        // About face: turn ship to face opposite direction of motion
+        const shipSpeed = Math.sqrt(ship.vx * ship.vx + ship.vy * ship.vy);
+        if (shipSpeed > 0.1) {
+          // Calculate direction of motion
+          const motionAngle = Math.atan2(ship.vy, ship.vx);
+          // Target rotation is 180 degrees opposite to motion
+          const targetRotation = motionAngle + Math.PI;
+          
+          // Calculate shortest rotation path
+          let angleDiff = targetRotation - ship.rotation;
+          // Normalize to [-PI, PI]
+          while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+          while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+          
+          // Rotate towards target (faster rotation for about-face)
+          const aboutFaceSpeed = ROTATION_SPEED * 3; // 3x faster for about-face
+          if (Math.abs(angleDiff) > 0.05) {
+            ship.angularVelocity += Math.sign(angleDiff) * aboutFaceSpeed;
+            // Limit angular velocity
+            if (Math.abs(ship.angularVelocity) > MAX_ANGULAR_VELOCITY * 2) {
+              ship.angularVelocity = Math.sign(ship.angularVelocity) * MAX_ANGULAR_VELOCITY * 2;
+            }
+          } else {
+            // Snap to target when close
+            ship.rotation = targetRotation;
+            ship.angularVelocity = 0;
+          }
+        }
+      }
+
+      // Fire weapon
+      if (keys[' ']) {
+        const proj = ship.fireWeapon();
+        if (proj) projectiles.push(proj);
+      }
+
+      // Moons are stationary, no update needed
+
+      // Update entities
+      ship.update(deltaTime, planets, moons, lagrangePoints);
+      
+      // Update stations
+      stations.forEach(station => station.update(deltaTime));
+
+      // Update projectiles
+      projectiles = projectiles.filter(proj => proj.update(planets, moons));
+
+      // Update impact effects
+      impacts = impacts.filter(impact => impact.update());
+
+      // Update camera to follow ship
+      cameraX = ship.x - CANVAS.width / 2;
+      cameraY = ship.y - CANVAS.height / 2;
+
+      // Update UI
+      updateUI();
+    }
+
+    /***********************
+     * WEBGL RENDERING FUNCTIONS
+     ***********************/
+    
+    // Helper to convert hex color to RGB
+    function hexToRgb(hex) {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? [
+        parseInt(result[1], 16) / 255,
+        parseInt(result[2], 16) / 255,
+        parseInt(result[3], 16) / 255
+      ] : [1, 1, 1];
+    }
+    
+    // Render stars with WebGL - completely rebuilt, simple and clean
+    function renderStarsWebGL() {
+      if (!gl || !shaderPrograms.star || !stars || stars.length === 0) return;
+      
+      const program = shaderPrograms.star;
+      gl.useProgram(program);
+      
+      // Ensure blending is enabled
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      
+      // Disable depth testing for stars (they're always in background)
+      gl.disable(gl.DEPTH_TEST);
+      
+      // Vertex data: position(2), depth(1), size(1), color(3), brightness(1) = 8 floats per star
+      const stride = 8;
+      
+      // Only regenerate buffer if stars changed or first time
+      if (starBufferDirty || !starVertexBuffer) {
+        const vertexData = new Float32Array(stars.length * stride);
+        let offset = 0;
+        
+        for (let i = 0; i < stars.length; i++) {
+          const star = stars[i];
+          if (!star || !star.color) continue;
+          
+          // Use fixed precision to prevent flickering
+          vertexData[offset++] = Math.round(star.x * 100) / 100;
+          vertexData[offset++] = Math.round(star.y * 100) / 100;
+          vertexData[offset++] = star.depth || 0.5; // Parallax depth
+          vertexData[offset++] = Math.max(star.size || 1.0, 1.5); // Larger minimum size
+          vertexData[offset++] = star.color[0] || 1.0;
+          vertexData[offset++] = star.color[1] || 1.0;
+          vertexData[offset++] = star.color[2] || 1.0;
+          vertexData[offset++] = star.brightness || 1.0;
+        }
+        
+        // Bind buffer
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.star);
+        gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
+        starVertexBuffer = vertexData;
+        starBufferDirty = false;
+      } else {
+        // Reuse existing buffer
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.star);
+      }
+      
+      // Set uniforms
+      const cameraLoc = gl.getUniformLocation(program, 'u_camera');
+      const resolutionLoc = gl.getUniformLocation(program, 'u_resolution');
+      
+      if (cameraLoc) gl.uniform2f(cameraLoc, cameraX, cameraY);
+      if (resolutionLoc) gl.uniform2f(resolutionLoc, CANVAS.width, CANVAS.height);
+      
+      // Set up attributes
+      const positionLoc = gl.getAttribLocation(program, 'a_position');
+      const depthLoc = gl.getAttribLocation(program, 'a_depth');
+      const sizeLoc = gl.getAttribLocation(program, 'a_size');
+      const colorLoc = gl.getAttribLocation(program, 'a_color');
+      const brightnessLoc = gl.getAttribLocation(program, 'a_brightness');
+      
+      if (positionLoc >= 0) {
+        gl.enableVertexAttribArray(positionLoc);
+        gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, stride * 4, 0);
+      }
+      
+      if (depthLoc >= 0) {
+        gl.enableVertexAttribArray(depthLoc);
+        gl.vertexAttribPointer(depthLoc, 1, gl.FLOAT, false, stride * 4, 2 * 4);
+      }
+      
+      if (sizeLoc >= 0) {
+        gl.enableVertexAttribArray(sizeLoc);
+        gl.vertexAttribPointer(sizeLoc, 1, gl.FLOAT, false, stride * 4, 3 * 4);
+      }
+      
+      if (colorLoc >= 0) {
+        gl.enableVertexAttribArray(colorLoc);
+        gl.vertexAttribPointer(colorLoc, 3, gl.FLOAT, false, stride * 4, 4 * 4);
+      }
+      
+      if (brightnessLoc >= 0) {
+        gl.enableVertexAttribArray(brightnessLoc);
+        gl.vertexAttribPointer(brightnessLoc, 1, gl.FLOAT, false, stride * 4, 7 * 4);
+      }
+      
+      gl.drawArrays(gl.POINTS, 0, stars.length);
+    }
+    
+    // Render circles (planets, moons, projectiles, Lagrange points)
+    function renderCirclesWebGL(objects, colorFunc, radiusFunc, alphaFunc = () => 1.0) {
+      if (!gl || !shaderPrograms.circle || objects.length === 0) return;
+      
+      const program = shaderPrograms.circle;
+      gl.useProgram(program);
+      
+      // Set uniforms (common for all objects)
+      const cameraLoc = gl.getUniformLocation(program, 'u_camera');
+      const resolutionLoc = gl.getUniformLocation(program, 'u_resolution');
+      const outlineLoc = gl.getUniformLocation(program, 'u_outline');
+      const outlineThicknessLoc = gl.getUniformLocation(program, 'u_outlineThickness');
+      
+      gl.uniform2f(cameraLoc, cameraX, cameraY);
+      gl.uniform2f(resolutionLoc, CANVAS.width, CANVAS.height);
+      gl.uniform1f(outlineLoc, 0.0); // Default: filled circles
+      gl.uniform1f(outlineThicknessLoc, 0.1); // Default outline thickness
+      
+      // Quad vertices (shared by all circles) - covers [-1, 1] range
+      const quadVertices = new Float32Array([
+        -1, -1,  // Bottom left
+         1, -1,  // Bottom right
+        -1,  1,  // Top left
+         1,  1   // Top right
+      ]);
+      
+      // Create and bind quad buffer (reuse if exists)
+      if (!buffers.quad) {
+        buffers.quad = gl.createBuffer();
+      }
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.quad);
+      gl.bufferData(gl.ARRAY_BUFFER, quadVertices, gl.STATIC_DRAW);
+      
+      const quadLoc = gl.getAttribLocation(program, 'a_quadVertex');
+      gl.enableVertexAttribArray(quadLoc);
+      gl.vertexAttribPointer(quadLoc, 2, gl.FLOAT, false, 0, 0);
+      
+      // Set up per-object attributes
+      const positionLoc = gl.getAttribLocation(program, 'a_position');
+      const radiusLoc = gl.getAttribLocation(program, 'a_radius');
+      const alphaLoc = gl.getAttribLocation(program, 'a_alpha');
+      
+      gl.enableVertexAttribArray(positionLoc);
+      gl.enableVertexAttribArray(radiusLoc);
+      gl.enableVertexAttribArray(alphaLoc);
+      
+      const colorLoc = gl.getUniformLocation(program, 'u_color');
+      
+      // Create instance buffer for per-object data
+      if (!buffers.circleInstance) {
+        buffers.circleInstance = gl.createBuffer();
+      }
+      
+      // Render each object individually
+      for (let i = 0; i < objects.length; i++) {
+        const obj = objects[i];
+        const rgb = hexToRgb(colorFunc(obj));
+        const radius = radiusFunc(obj); // Use actual radius for visual size
+        const alpha = alphaFunc(obj);
+        
+        // Set color
+        gl.uniform3f(colorLoc, rgb[0], rgb[1], rgb[2]);
+        
+        // Create interleaved vertex data: quad vertex (2) + position (2) + radius (1) + alpha (1) = 6 floats per vertex
+        // We need 4 vertices for the quad, each with the same position/radius/alpha
+        const vertexData = new Float32Array(4 * 6); // 4 vertices * 6 floats each
+        const quadVerts = [-1, -1, 1, -1, -1, 1, 1, 1]; // Quad vertices
+        
+        for (let v = 0; v < 4; v++) {
+          const offset = v * 6;
+          vertexData[offset + 0] = quadVerts[v * 2];     // quad x
+          vertexData[offset + 1] = quadVerts[v * 2 + 1]; // quad y
+          vertexData[offset + 2] = obj.x;                // position x
+          vertexData[offset + 3] = obj.y;                // position y
+          vertexData[offset + 4] = radius;               // radius
+          vertexData[offset + 5] = alpha;                // alpha
+        }
+        
+        // Bind buffer and upload data
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.circleInstance);
+        gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.DYNAMIC_DRAW);
+        
+        // Set up interleaved attributes
+        const stride = 6 * 4; // 6 floats * 4 bytes each
+        
+        gl.vertexAttribPointer(quadLoc, 2, gl.FLOAT, false, stride, 0);
+        gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, stride, 2 * 4);
+        gl.vertexAttribPointer(radiusLoc, 1, gl.FLOAT, false, stride, 4 * 4);
+        gl.vertexAttribPointer(alphaLoc, 1, gl.FLOAT, false, stride, 5 * 4);
+        
+        // Draw quad as triangle strip (covers the full circle area)
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      }
+    }
+    
+    // Render stations with WebGL
+    function renderStationsWebGL() {
+      if (!gl || !shaderPrograms.circle || stations.length === 0) return;
+      
+      const program = shaderPrograms.circle;
+      gl.useProgram(program);
+      
+      // Set uniforms (common for all station parts)
+      const cameraLoc = gl.getUniformLocation(program, 'u_camera');
+      const resolutionLoc = gl.getUniformLocation(program, 'u_resolution');
+      const outlineLoc = gl.getUniformLocation(program, 'u_outline');
+      const outlineThicknessLoc = gl.getUniformLocation(program, 'u_outlineThickness');
+      const colorLoc = gl.getUniformLocation(program, 'u_color');
+      
+      gl.uniform2f(cameraLoc, cameraX, cameraY);
+      gl.uniform2f(resolutionLoc, CANVAS.width, CANVAS.height);
+      gl.uniform1f(outlineLoc, 0.0); // Filled circles
+      gl.uniform1f(outlineThicknessLoc, 0.1);
+      
+      // Set up attributes
+      const quadLoc = gl.getAttribLocation(program, 'a_quadVertex');
+      const positionLoc = gl.getAttribLocation(program, 'a_position');
+      const radiusLoc = gl.getAttribLocation(program, 'a_radius');
+      const alphaLoc = gl.getAttribLocation(program, 'a_alpha');
+      
+      gl.enableVertexAttribArray(quadLoc);
+      gl.enableVertexAttribArray(positionLoc);
+      gl.enableVertexAttribArray(radiusLoc);
+      gl.enableVertexAttribArray(alphaLoc);
+      
+      // Quad vertices
+      const quadVerts = [-1, -1, 1, -1, -1, 1, 1, 1];
+      
+      if (!buffers.circleInstance) {
+        buffers.circleInstance = gl.createBuffer();
+      }
+      
+      // Render each station
+      for (let station of stations) {
+        const cosRot = Math.cos(station.rotation);
+        const sinRot = Math.sin(station.rotation);
+        
+        // Helper to render a circle at a rotated position
+        const renderCircle = (worldX, worldY, radius, color, alpha = 1.0) => {
+          // Rotate position around station center
+          const relX = worldX - station.x;
+          const relY = worldY - station.y;
+          const rotX = station.x + (relX * cosRot - relY * sinRot);
+          const rotY = station.y + (relX * sinRot + relY * cosRot);
+          
+          const rgb = hexToRgb(color);
+          gl.uniform3f(colorLoc, rgb[0], rgb[1], rgb[2]);
+          
+          const vertexData = new Float32Array(4 * 6);
+          for (let v = 0; v < 4; v++) {
+            const offset = v * 6;
+            vertexData[offset + 0] = quadVerts[v * 2];
+            vertexData[offset + 1] = quadVerts[v * 2 + 1];
+            vertexData[offset + 2] = rotX;
+            vertexData[offset + 3] = rotY;
+            vertexData[offset + 4] = radius;
+            vertexData[offset + 5] = alpha;
+          }
+          
+          gl.bindBuffer(gl.ARRAY_BUFFER, buffers.circleInstance);
+          gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.DYNAMIC_DRAW);
+          
+          const stride = 6 * 4;
+          gl.vertexAttribPointer(quadLoc, 2, gl.FLOAT, false, stride, 0);
+          gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, stride, 2 * 4);
+          gl.vertexAttribPointer(radiusLoc, 1, gl.FLOAT, false, stride, 4 * 4);
+          gl.vertexAttribPointer(alphaLoc, 1, gl.FLOAT, false, stride, 5 * 4);
+          
+          gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        };
+        
+        // Helper to render a rod (elongated shape) along an angle
+        const renderRod = (startX, startY, endX, endY, width, color, alpha = 1.0) => {
+          // Calculate length and angle
+          const length = Math.sqrt((endX - startX) ** 2 + (endY - startY) ** 2);
+          const angle = Math.atan2(endY - startY, endX - startX);
+          
+          // Render rod as multiple circles along its length to approximate a rod
+          const segments = Math.max(3, Math.ceil(length / (width * 2)));
+          for (let seg = 0; seg <= segments; seg++) {
+            const t = seg / segments;
+            const segX = startX + (endX - startX) * t;
+            const segY = startY + (endY - startY) * t;
+            
+            // Rotate position around station center
+            const relX = segX - station.x;
+            const relY = segY - station.y;
+            const rotX = station.x + (relX * cosRot - relY * sinRot);
+            const rotY = station.y + (relX * sinRot + relY * cosRot);
+            
+            renderCircle(rotX, rotY, width, color, alpha);
+          }
+        };
+        
+        // Torus (outer ring) - render as outline circle (metallic gray)
+        gl.uniform1f(outlineLoc, 1.0);
+        gl.uniform1f(outlineThicknessLoc, station.torusThickness / station.torusRadius);
+        renderCircle(station.x, station.y, station.torusRadius, '#9ca3af', 1.0); // Metallic gray
+        gl.uniform1f(outlineLoc, 0.0);
+        
+        // Central rod (vertical through center) - darker metallic
+        const rodTopX = station.x;
+        const rodTopY = station.y - station.centralRodLength / 2;
+        const rodBottomX = station.x;
+        const rodBottomY = station.y + station.centralRodLength / 2;
+        renderRod(rodTopX, rodTopY, rodBottomX, rodBottomY, station.centralRodWidth, '#6b7280', 1.0); // Darker gray
+        
+        // Spokes/rods radiating from center to torus - metallic silver
+        for (let i = 0; i < station.spokeCount; i++) {
+          const angle = (i / station.spokeCount) * Math.PI * 2;
+          const spokeEndX = station.x + Math.cos(angle) * station.spokeLength;
+          const spokeEndY = station.y + Math.sin(angle) * station.spokeLength;
+          
+          // Draw spoke from center to torus
+          renderRod(station.x, station.y, spokeEndX, spokeEndY, station.spokeWidth, '#d1d5db', 1.0); // Light silver
+        }
+        
+        // Central hub (small circle at center) - darker metallic
+        renderCircle(station.x, station.y, 3, '#4b5563', 1.0); // Dark gray
+      }
+    }
+    
+    // Render ship with WebGL
+    function renderShipWebGL() {
+      if (!gl || !shaderPrograms.ship || !ship) return;
+      
+      const program = shaderPrograms.ship;
+      gl.useProgram(program);
+      
+      // Ship triangle vertices (relative to center, pointing right initially)
+      // Match Canvas 2D orientation: nose points right (positive X)
+      const shipSize = ship.size;
+      const vertices = new Float32Array([
+        shipSize, 0,                    // Nose (right)
+        -shipSize, -shipSize * 0.7,     // Left rear
+        -shipSize * 0.5, 0,             // Center rear
+        -shipSize, shipSize * 0.7        // Right rear
+      ]);
+      
+      // Set uniforms
+      const cameraLoc = gl.getUniformLocation(program, 'u_camera');
+      const resolutionLoc = gl.getUniformLocation(program, 'u_resolution');
+      const translationLoc = gl.getUniformLocation(program, 'u_translation');
+      const rotationLoc = gl.getUniformLocation(program, 'u_rotation');
+      const colorLoc = gl.getUniformLocation(program, 'u_color');
+      const alphaLoc = gl.getUniformLocation(program, 'u_alpha');
+      
+      gl.uniform2f(cameraLoc, cameraX, cameraY);
+      gl.uniform2f(resolutionLoc, CANVAS.width, CANVAS.height);
+      gl.uniform2f(translationLoc, ship.x, ship.y);
+      gl.uniform1f(rotationLoc, ship.rotation);
+      
+      // Create buffer for ship
+      const shipBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, shipBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+      
+      // Set up position attribute
+      const positionLoc = gl.getAttribLocation(program, 'a_position');
+      gl.enableVertexAttribArray(positionLoc);
+      gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+      
+      // Draw ship body
+      const rgb = ship.power > 0 ? [1, 1, 1] : [0.4, 0.4, 0.4];
+      gl.uniform3f(colorLoc, rgb[0], rgb[1], rgb[2]);
+      gl.uniform1f(alphaLoc, 0.9);
+      
+      gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+      
+      // Draw thrust effect if thrusting
+      if (ship.thrusting && ship.power > 0) {
+        const thrustVertices = new Float32Array([
+          -shipSize, 0,
+          -shipSize * 1.5, -shipSize * 0.3,
+          -shipSize * 1.5, shipSize * 0.3
+        ]);
+        gl.bufferData(gl.ARRAY_BUFFER, thrustVertices, gl.STATIC_DRAW);
+        gl.uniform3f(colorLoc, 1.0, 0.75, 0.14); // Yellow
+        gl.uniform1f(alphaLoc, 0.8);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+      }
+      
+      gl.deleteBuffer(shipBuffer);
+    }
+    
+    // Render impact effects with WebGL
+    function renderImpactsWebGL() {
+      if (!gl || !shaderPrograms.impact || impacts.length === 0) return;
+      
+      const program = shaderPrograms.impact;
+      gl.useProgram(program);
+      
+      // Set uniforms
+      const cameraLoc = gl.getUniformLocation(program, 'u_camera');
+      const resolutionLoc = gl.getUniformLocation(program, 'u_resolution');
+      
+      gl.uniform2f(cameraLoc, cameraX, cameraY);
+      gl.uniform2f(resolutionLoc, CANVAS.width, CANVAS.height);
+      
+      // Set up attributes
+      const positionLoc = gl.getAttribLocation(program, 'a_position');
+      const radiusLoc = gl.getAttribLocation(program, 'a_radius');
+      const alphaLoc = gl.getAttribLocation(program, 'a_alpha');
+      
+      gl.enableVertexAttribArray(positionLoc);
+      gl.enableVertexAttribArray(radiusLoc);
+      gl.enableVertexAttribArray(alphaLoc);
+      
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.impact);
+      
+      for (let i = 0; i < impacts.length; i++) {
+        const impact = impacts[i];
+        const currentSize = impact.size + (impact.maxSize - impact.size) * (impact.age / impact.lifetime);
+        const alpha = 1.0 - (impact.age / impact.lifetime);
+        
+        const data = new Float32Array([
+          impact.x, impact.y,  // position
+          currentSize,         // radius
+          alpha                // alpha
+        ]);
+        
+        gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
+        
+        gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 4 * 4, 0);
+        gl.vertexAttribPointer(radiusLoc, 1, gl.FLOAT, false, 4 * 4, 2 * 4);
+        gl.vertexAttribPointer(alphaLoc, 1, gl.FLOAT, false, 4 * 4, 3 * 4);
+        
+        gl.drawArrays(gl.POINTS, 0, 1);
+      }
+    }
+    
+    /***********************
+     * RENDERING
+     ***********************/
+    function render() {
+      if (!gl) {
+        // Fallback to Canvas 2D if WebGL not available
+        CTX.fillStyle = '#000000';
+        CTX.fillRect(0, 0, CANVAS.width, CANVAS.height);
+        return;
+      }
+      
+      // Clear WebGL canvas
+      gl.clearColor(0.0, 0.0, 0.0, 1.0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+
+      if (gameState === STATE_MENU) {
+        return;
+      }
+
+      // Render with WebGL
+      renderStarsWebGL();
+      
+      // Render planets
+      renderCirclesWebGL(
+        planets,
+        (p) => p.color,
+        (p) => p.radius,
+        () => 1.0
+      );
+      
+      // Render moons
+      renderCirclesWebGL(
+        moons,
+        (m) => m.color,
+        (m) => m.radius,
+        () => 1.0
+      );
+      
+      // Render Lagrange points (with glow effect - simplified for now)
+      renderCirclesWebGL(
+        lagrangePoints,
+        (lp) => lp.stable ? '#ffffff' : '#c8c8c8',
+        (lp) => lp.radius,
+        (lp) => lp.stable ? 0.12 : 0.12
+      );
+      
+      // Render projectiles
+      renderCirclesWebGL(
+        projectiles,
+        () => '#ffffff',
+        (p) => p.radius,
+        () => 1.0
+      );
+      
+      // Render impact effects (use impact shader)
+      renderImpactsWebGL();
+      
+      // Render stations
+      renderStationsWebGL();
+      
+      // Render ship
+      renderShipWebGL();
+      
+      // Draw orbit lines (WebGL)
+      renderOrbitLinesWebGL();
+
+      // Draw minimap (still Canvas 2D - GUI element)
+      drawMinimap();
+    }
+
+    /***********************
+     * SCANNER
+     ***********************/
+    function scanObject(clickX, clickY) {
+      const scannerContent = document.getElementById('scannerContent');
+      const clickRadius = 30; // Click detection radius
+      
+      // Check Lagrange points first (smaller, need priority)
+      for (let lp of lagrangePoints) {
+        const dx = lp.x - clickX;
+        const dy = lp.y - clickY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist < lp.radius + clickRadius) {
+          // Found a Lagrange point
+          // Determine which is planet (primary) and which is moon (secondary)
+          const isP1Planet = planets.includes(lp.planet1);
+          const isP2Planet = planets.includes(lp.planet2);
+          
+          let planet, moon;
+          if (isP1Planet && !isP2Planet) {
+            planet = lp.planet1;
+            moon = lp.planet2;
+          } else if (isP2Planet && !isP1Planet) {
+            planet = lp.planet2;
+            moon = lp.planet1;
+          } else {
+            // Both planets or both moons - use mass to determine
+            planet = lp.planet1.mass >= lp.planet2.mass ? lp.planet1 : lp.planet2;
+            moon = lp.planet1.mass >= lp.planet2.mass ? lp.planet2 : lp.planet1;
+          }
+          
+          // Get body names/identifiers
+          const planetIndex = planets.indexOf(planet) + 1;
+          const moonIndex = moons.indexOf(moon) + 1;
+          const body1 = `Planet ${planetIndex}`;
+          const body2 = `Moon ${moonIndex}`;
+          
+          scannerContent.innerHTML = `
+            <div style="color: #f3f4f6; font-weight: bold; margin-bottom: 8px;">Lagrange Point ${lp.type} of ${body1} and ${body2}</div>
+            <div style="margin-bottom: 5px;">Type: ${lp.type === 'L4' || lp.type === 'L5' ? 'Stable (Trojan)' : 'Unstable'}</div>
+            <div style="margin-bottom: 5px;">Planet Mass: ${planet.mass.toFixed(1)}</div>
+            <div style="margin-bottom: 5px;">Moon Mass: ${moon.mass.toFixed(1)}</div>
+            <div style="margin-top: 10px; font-size: 12px; color: #9ca3af;">
+              ${lp.type === 'L1' ? 'Between planet and moon (closer to moon)' : ''}
+              ${lp.type === 'L2' ? 'Beyond moon, away from planet' : ''}
+              ${lp.type === 'L3' ? 'Beyond planet, away from moon' : ''}
+              ${lp.type === 'L4' ? '60° ahead of moon (stable Trojan point)' : ''}
+              ${lp.type === 'L5' ? '60° behind moon (stable Trojan point)' : ''}
+            </div>
+          `;
+          return;
+        }
+      }
+      
+      // Check stations (after Lagrange points, before moons)
+      for (let station of stations) {
+        const dx = station.x - clickX;
+        const dy = station.y - clickY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        // Station clickable area is roughly torus radius + thickness
+        const stationRadius = station.torusRadius + station.torusThickness;
+        
+        if (dist < stationRadius + clickRadius) {
+          // Find which Lagrange point this station is at
+          let lagrangePoint = null;
+          for (let lp of lagrangePoints) {
+            const ldx = lp.x - station.x;
+            const ldy = lp.y - station.y;
+            const ldist = Math.sqrt(ldx * ldx + ldy * ldy);
+            if (ldist < 10) { // Station should be very close to its Lagrange point
+              lagrangePoint = lp;
+              break;
+            }
+          }
+          
+          let locationInfo = '';
+          if (lagrangePoint) {
+            // Determine which is planet (primary) and which is moon (secondary)
+            const isP1Planet = planets.includes(lagrangePoint.planet1);
+            const isP2Planet = planets.includes(lagrangePoint.planet2);
+            
+            let planet, moon;
+            if (isP1Planet && !isP2Planet) {
+              planet = lagrangePoint.planet1;
+              moon = lagrangePoint.planet2;
+            } else if (isP2Planet && !isP1Planet) {
+              planet = lagrangePoint.planet2;
+              moon = lagrangePoint.planet1;
+            } else {
+              planet = lagrangePoint.planet1.mass >= lagrangePoint.planet2.mass ? lagrangePoint.planet1 : lagrangePoint.planet2;
+              moon = lagrangePoint.planet1.mass >= lagrangePoint.planet2.mass ? lagrangePoint.planet2 : lagrangePoint.planet1;
+            }
+            
+            const planetIndex = planets.indexOf(planet) + 1;
+            const moonIndex = moons.indexOf(moon) + 1;
+            locationInfo = `Located at Lagrange Point ${lagrangePoint.type} of Planet ${planetIndex} and Moon ${moonIndex}`;
+          }
+          
+          scannerContent.innerHTML = `
+            <div style="color: #f3f4f6; font-weight: bold; margin-bottom: 8px;">SPACE STATION</div>
+            <div style="margin-bottom: 5px;">Type: Pinwheel Station</div>
+            <div style="margin-bottom: 5px;">Torus Radius: ${station.torusRadius.toFixed(0)} units</div>
+            <div style="margin-bottom: 5px;">Spokes: ${station.spokeCount}</div>
+            <div style="margin-bottom: 5px;">Size: ${station.size.toFixed(0)} units</div>
+            ${locationInfo ? `<div style="margin-bottom: 5px; margin-top: 10px; color: #9ca3af;">${locationInfo}</div>` : ''}
+            <div style="margin-top: 10px; font-size: 12px; color: #9ca3af;">
+              Rotating at ${(station.rotationSpeed * 1000).toFixed(2)} rad/s
+            </div>
+          `;
+          return;
+        }
+      }
+      
+      // Check moons
+      for (let moon of moons) {
+        const dx = moon.x - clickX;
+        const dy = moon.y - clickY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist < moon.radius + clickRadius) {
+          // Find which planet this moon belongs to
+          let parentPlanet = null;
+          let minDist = Infinity;
+          planets.forEach(planet => {
+            const pdx = moon.x - planet.x;
+            const pdy = moon.y - planet.y;
+            const pdist = Math.sqrt(pdx * pdx + pdy * pdy);
+            if (pdist < minDist) {
+              minDist = pdist;
+              parentPlanet = planet;
+            }
+          });
+          
+          scannerContent.innerHTML = `
+            <div style="color: #f3f4f6; font-weight: bold; margin-bottom: 8px;">MOON</div>
+            <div style="margin-bottom: 5px;">Mass: ${moon.mass.toFixed(1)}</div>
+            <div style="margin-bottom: 5px;">Radius: ${moon.radius.toFixed(0)} km</div>
+            ${parentPlanet ? `<div style="margin-bottom: 5px;">Orbiting: Planet (${parentPlanet.mass.toFixed(1)} mass)</div>` : ''}
+            <div style="margin-bottom: 5px;">Distance from planet: ${minDist.toFixed(0)} km</div>
+          `;
+          return;
+        }
+      }
+      
+      // Check planets
+      for (let planet of planets) {
+        const dx = planet.x - clickX;
+        const dy = planet.y - clickY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist < planet.radius + clickRadius) {
+          // Count moons for this planet
+          const planetMoons = moons.filter(moon => {
+            const mdx = moon.x - planet.x;
+            const mdy = moon.y - planet.y;
+            const mdist = Math.sqrt(mdx * mdx + mdy * mdy);
+            return mdist < 2000; // Within orbital distance
+          });
+          
+          scannerContent.innerHTML = `
+            <div style="color: #f3f4f6; font-weight: bold; margin-bottom: 8px;">PLANET</div>
+            <div style="margin-bottom: 5px;">Mass: ${planet.mass.toFixed(1)}</div>
+            <div style="margin-bottom: 5px;">Radius: ${planet.radius.toFixed(0)} km</div>
+            <div style="margin-bottom: 5px;">Moons: ${planetMoons.length}</div>
+            <div style="margin-top: 10px; font-size: 12px; color: #9ca3af;">
+              Position: (${planet.x.toFixed(0)}, ${planet.y.toFixed(0)})
+            </div>
+          `;
+          return;
+        }
+      }
+      
+      // Nothing clicked
+      scannerContent.innerHTML = '<div style="color: #9ca3af;">No object detected</div>';
+    }
+
+    /***********************
+     * ORBIT LINES (WebGL)
+     ***********************/
+    function renderOrbitLinesWebGL() {
+      if (!gl || !shaderPrograms.circle || gameState === STATE_MENU || !ship) return;
+      
+      // Work like Canvas 2D version: show orbit line based on ship's actual distance when orbiting
+      // First check if ship is orbiting
+      if (ship.orbitingPlanet && ship.orbitDistance > 0) {
+        const planet = ship.orbitingPlanet;
+        const orbitRadius = ship.orbitDistance; // Use actual distance, like Canvas 2D
+        
+        const program = shaderPrograms.circle;
+        gl.useProgram(program);
+        
+        // Set uniforms
+        const cameraLoc = gl.getUniformLocation(program, 'u_camera');
+        const resolutionLoc = gl.getUniformLocation(program, 'u_resolution');
+        const colorLoc = gl.getUniformLocation(program, 'u_color');
+        const outlineLoc = gl.getUniformLocation(program, 'u_outline');
+        const outlineThicknessLoc = gl.getUniformLocation(program, 'u_outlineThickness');
+        
+        gl.uniform2f(cameraLoc, cameraX, cameraY);
+        gl.uniform2f(resolutionLoc, CANVAS.width, CANVAS.height);
+        gl.uniform3f(colorLoc, 220/255, 220/255, 220/255); // White like Canvas 2D
+        
+        // Set outline mode
+        const outlineThickness = Math.max(0.03, 2.5 / orbitRadius);
+        gl.uniform1f(outlineLoc, 1.0);
+        gl.uniform1f(outlineThicknessLoc, outlineThickness);
+        
+        // Set up attributes
+        const quadLoc = gl.getAttribLocation(program, 'a_quadVertex');
+        const positionLoc = gl.getAttribLocation(program, 'a_position');
+        const radiusLoc = gl.getAttribLocation(program, 'a_radius');
+        const alphaLoc = gl.getAttribLocation(program, 'a_alpha');
+        
+        gl.enableVertexAttribArray(quadLoc);
+        gl.enableVertexAttribArray(positionLoc);
+        gl.enableVertexAttribArray(radiusLoc);
+        gl.enableVertexAttribArray(alphaLoc);
+        
+        // Render dashed orbit line - like Canvas 2D with [5, 5] dash pattern
+        const dashLength = 5;
+        const gapLength = 5;
+        const circumference = Math.PI * 2 * orbitRadius;
+        const dashAngle = (dashLength / circumference) * (Math.PI * 2);
+        const gapAngle = (gapLength / circumference) * (Math.PI * 2);
+        
+        const quadVerts = [-1, -1, 1, -1, -1, 1, 1, 1];
+        const lineThickness = 2.5;
+        const alpha = 0.5; // Like Canvas 2D rgba(255, 255, 255, 0.5)
+        
+        // Render dashes around the circle
+        let currentAngle = 0;
+        let isDash = true;
+        
+        while (currentAngle < Math.PI * 2) {
+          if (isDash) {
+            const dashStartAngle = currentAngle;
+            const dashEndAngle = Math.min(currentAngle + dashAngle, Math.PI * 2);
+            const dashSpan = dashEndAngle - dashStartAngle;
+            const dashWorldLength = orbitRadius * dashSpan;
+            
+            // Render multiple small circles along the dash arc
+            const dashSegments = Math.max(3, Math.ceil(dashWorldLength / 3));
+            const segmentAngle = dashSpan / dashSegments;
+            
+            for (let seg = 0; seg < dashSegments; seg++) {
+              const segAngle = dashStartAngle + (seg + 0.5) * segmentAngle;
+              const segX = planet.x + Math.cos(segAngle) * orbitRadius;
+              const segY = planet.y + Math.sin(segAngle) * orbitRadius;
+              
+              const vertexData = new Float32Array(4 * 6);
+              for (let v = 0; v < 4; v++) {
+                const offset = v * 6;
+                vertexData[offset + 0] = quadVerts[v * 2];
+                vertexData[offset + 1] = quadVerts[v * 2 + 1];
+                vertexData[offset + 2] = segX;
+                vertexData[offset + 3] = segY;
+                vertexData[offset + 4] = lineThickness;
+                vertexData[offset + 5] = alpha;
+              }
+              
+              if (!buffers.circleInstance) {
+                buffers.circleInstance = gl.createBuffer();
+              }
+              gl.bindBuffer(gl.ARRAY_BUFFER, buffers.circleInstance);
+              gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.DYNAMIC_DRAW);
+              
+              const stride = 6 * 4;
+              gl.vertexAttribPointer(quadLoc, 2, gl.FLOAT, false, stride, 0);
+              gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, stride, 2 * 4);
+              gl.vertexAttribPointer(radiusLoc, 1, gl.FLOAT, false, stride, 4 * 4);
+              gl.vertexAttribPointer(alphaLoc, 1, gl.FLOAT, false, stride, 5 * 4);
+              
+              gl.uniform1f(outlineLoc, 0.0);
+              gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+              gl.uniform1f(outlineLoc, 1.0);
+            }
+            
+            currentAngle += dashAngle;
+          } else {
+            currentAngle += gapAngle;
+          }
+          
+          isDash = !isDash;
+        }
+        
+        // Reset outline mode
+        gl.uniform1f(outlineLoc, 0.0);
+      } else if (ship.nearOrbit) {
+        // Visual feedback when close to orbit - like Canvas 2D nearOrbit
+        const planet = ship.nearOrbit;
+        const dx = ship.x - planet.x;
+        const dy = ship.y - planet.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        const program = shaderPrograms.circle;
+        gl.useProgram(program);
+        
+        // Set uniforms
+        const cameraLoc = gl.getUniformLocation(program, 'u_camera');
+        const resolutionLoc = gl.getUniformLocation(program, 'u_resolution');
+        const colorLoc = gl.getUniformLocation(program, 'u_color');
+        const outlineLoc = gl.getUniformLocation(program, 'u_outline');
+        const outlineThicknessLoc = gl.getUniformLocation(program, 'u_outlineThickness');
+        
+        gl.uniform2f(cameraLoc, cameraX, cameraY);
+        gl.uniform2f(resolutionLoc, CANVAS.width, CANVAS.height);
+        gl.uniform3f(colorLoc, 220/255, 220/255, 220/255);
+        
+        // Set outline mode - thinner for nearOrbit
+        const outlineThickness = Math.max(0.03, 2.0 / dist);
+        gl.uniform1f(outlineLoc, 1.0);
+        gl.uniform1f(outlineThicknessLoc, outlineThickness);
+        
+        // Set up attributes
+        const quadLoc = gl.getAttribLocation(program, 'a_quadVertex');
+        const positionLoc = gl.getAttribLocation(program, 'a_position');
+        const radiusLoc = gl.getAttribLocation(program, 'a_radius');
+        const alphaLoc = gl.getAttribLocation(program, 'a_alpha');
+        
+        gl.enableVertexAttribArray(quadLoc);
+        gl.enableVertexAttribArray(positionLoc);
+        gl.enableVertexAttribArray(radiusLoc);
+        gl.enableVertexAttribArray(alphaLoc);
+        
+        // Render dashed orbit line - like Canvas 2D with [3, 3] dash pattern
+        const dashLength = 3;
+        const gapLength = 3;
+        const circumference = Math.PI * 2 * dist;
+        const dashAngle = (dashLength / circumference) * (Math.PI * 2);
+        const gapAngle = (gapLength / circumference) * (Math.PI * 2);
+        
+        const quadVerts = [-1, -1, 1, -1, -1, 1, 1, 1];
+        const lineThickness = 2.0; // Thinner for nearOrbit
+        const alpha = 0.3; // Like Canvas 2D rgba(255, 255, 255, 0.3)
+        
+        // Render dashes around the circle
+        let currentAngle = 0;
+        let isDash = true;
+        
+        while (currentAngle < Math.PI * 2) {
+          if (isDash) {
+            const dashStartAngle = currentAngle;
+            const dashEndAngle = Math.min(currentAngle + dashAngle, Math.PI * 2);
+            const dashSpan = dashEndAngle - dashStartAngle;
+            const dashWorldLength = dist * dashSpan;
+            
+            // Render multiple small circles along the dash arc
+            const dashSegments = Math.max(3, Math.ceil(dashWorldLength / 3));
+            const segmentAngle = dashSpan / dashSegments;
+            
+            for (let seg = 0; seg < dashSegments; seg++) {
+              const segAngle = dashStartAngle + (seg + 0.5) * segmentAngle;
+              const segX = planet.x + Math.cos(segAngle) * dist;
+              const segY = planet.y + Math.sin(segAngle) * dist;
+              
+              const vertexData = new Float32Array(4 * 6);
+              for (let v = 0; v < 4; v++) {
+                const offset = v * 6;
+                vertexData[offset + 0] = quadVerts[v * 2];
+                vertexData[offset + 1] = quadVerts[v * 2 + 1];
+                vertexData[offset + 2] = segX;
+                vertexData[offset + 3] = segY;
+                vertexData[offset + 4] = lineThickness;
+                vertexData[offset + 5] = alpha;
+              }
+              
+              if (!buffers.circleInstance) {
+                buffers.circleInstance = gl.createBuffer();
+              }
+              gl.bindBuffer(gl.ARRAY_BUFFER, buffers.circleInstance);
+              gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.DYNAMIC_DRAW);
+              
+              const stride = 6 * 4;
+              gl.vertexAttribPointer(quadLoc, 2, gl.FLOAT, false, stride, 0);
+              gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, stride, 2 * 4);
+              gl.vertexAttribPointer(radiusLoc, 1, gl.FLOAT, false, stride, 4 * 4);
+              gl.vertexAttribPointer(alphaLoc, 1, gl.FLOAT, false, stride, 5 * 4);
+              
+              gl.uniform1f(outlineLoc, 0.0);
+              gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+              gl.uniform1f(outlineLoc, 1.0);
+            }
+            
+            currentAngle += dashAngle;
+          } else {
+            currentAngle += gapAngle;
+          }
+          
+          isDash = !isDash;
+        }
+        
+        // Reset outline mode
+        gl.uniform1f(outlineLoc, 0.0);
+      }
+    }
+    
+    /***********************
+     * MINIMAP
+     ***********************/
+    function drawMinimap() {
+      const minimapCanvas = document.getElementById('minimapCanvas');
+      const minimapCtx = minimapCanvas.getContext('2d');
+      
+      // Clear minimap
+      minimapCtx.fillStyle = 'rgba(30, 30, 30, 0.3)';
+      minimapCtx.fillRect(0, 0, 200, 200);
+      
+      // Calculate bounds to show
+      let minX = Infinity, maxX = -Infinity;
+      let minY = Infinity, maxY = -Infinity;
+      
+      // Include ship
+      minX = Math.min(minX, ship.x);
+      maxX = Math.max(maxX, ship.x);
+      minY = Math.min(minY, ship.y);
+      maxY = Math.max(maxY, ship.y);
+      
+      // Include planets
+      planets.forEach(planet => {
+        minX = Math.min(minX, planet.x);
+        maxX = Math.max(maxX, planet.x);
+        minY = Math.min(minY, planet.y);
+        maxY = Math.max(maxY, planet.y);
+      });
+      
+      // Include moons
+      moons.forEach(moon => {
+        minX = Math.min(minX, moon.x);
+        maxX = Math.max(maxX, moon.x);
+        minY = Math.min(minY, moon.y);
+        maxY = Math.max(maxY, moon.y);
+      });
+      
+      // Add padding
+      const padding = 200;
+      minX -= padding;
+      maxX += padding;
+      minY -= padding;
+      maxY += padding;
+      
+      const width = maxX - minX;
+      const height = maxY - minY;
+      const scale = Math.min(200 / width, 200 / height);
+      
+      // Draw border
+      minimapCtx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      minimapCtx.lineWidth = 2;
+      minimapCtx.strokeRect(0, 0, 200, 200);
+      
+      // Draw planets
+      planets.forEach(planet => {
+        const x = (planet.x - minX) * scale;
+        const y = (planet.y - minY) * scale;
+        minimapCtx.fillStyle = planet.color;
+        minimapCtx.beginPath();
+        minimapCtx.arc(x, y, Math.max(2, planet.radius * scale), 0, Math.PI * 2);
+        minimapCtx.fill();
+      });
+      
+      // Draw moons
+      moons.forEach(moon => {
+        const x = (moon.x - minX) * scale;
+        const y = (moon.y - minY) * scale;
+        minimapCtx.fillStyle = moon.color;
+        minimapCtx.beginPath();
+        minimapCtx.arc(x, y, Math.max(1, moon.radius * scale), 0, Math.PI * 2);
+        minimapCtx.fill();
+      });
+      
+      // Draw ship
+      const shipX = (ship.x - minX) * scale;
+      const shipY = (ship.y - minY) * scale;
+      minimapCtx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      minimapCtx.beginPath();
+      minimapCtx.arc(shipX, shipY, 3, 0, Math.PI * 2);
+      minimapCtx.fill();
+      
+      // Draw camera view indicator
+      const viewWidth = CANVAS.width * scale;
+      const viewHeight = CANVAS.height * scale;
+      const viewX = (cameraX - minX) * scale;
+      const viewY = (cameraY - minY) * scale;
+      minimapCtx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      minimapCtx.lineWidth = 1;
+      minimapCtx.strokeRect(viewX, viewY, viewWidth, viewHeight);
+    }
+
+    /***********************
+     * UI UPDATE
+     ***********************/
+    function updateUI() {
+      const speed = Math.sqrt(ship.vx * ship.vx + ship.vy * ship.vy);
+      document.getElementById('speedText').textContent = speed.toFixed(1);
+
+      // Find nearest planet or moon for altitude
+      let nearestBody = null;
+      let minDist = Infinity;
+      planets.forEach(planet => {
+        const dx = ship.x - planet.x;
+        const dy = ship.y - planet.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < minDist) {
+          minDist = dist;
+          nearestBody = planet;
+        }
+      });
+      moons.forEach(moon => {
+        const dx = ship.x - moon.x;
+        const dy = ship.y - moon.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < minDist) {
+          minDist = dist;
+          nearestBody = moon;
+        }
+      });
+
+      if (nearestBody) {
+        const altitude = Math.max(0, minDist - nearestBody.radius);
+        document.getElementById('altitudeText').textContent = altitude.toFixed(0);
+      } else {
+        document.getElementById('altitudeText').textContent = '0';
+      }
+
+      // Orbit status
+      if (ship.atLagrangePoint) {
+        document.getElementById('orbitText').textContent = `${ship.atLagrangePoint.type} Point`;
+      } else if (ship.orbitingPlanet) {
+        document.getElementById('orbitText').textContent = `Stable (${ship.orbitDistance.toFixed(0)} km)`;
+      } else if (ship.nearOrbit) {
+        document.getElementById('orbitText').textContent = 'Near Orbit';
+      } else {
+        document.getElementById('orbitText').textContent = 'None';
+      }
+
+      document.getElementById('powerText').textContent = Math.floor(ship.power);
+      document.getElementById('powerFill').style.width = ship.power + '%';
+      document.getElementById('powerFill').style.background = ship.power > 20 
+        ? 'linear-gradient(90deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.6))' 
+        : 'linear-gradient(90deg, rgba(252, 165, 165, 0.8), rgba(239, 68, 68, 0.6))';
+
+      // Update collision warning
+      const warningEl = document.getElementById('collisionWarning');
+      if (ship.collisionWarning) {
+        warningEl.style.display = 'block';
+        // Make it flash
+        const time = Date.now() / 200;
+        const pulse = Math.sin(time) * 0.3 + 0.7;
+        warningEl.style.opacity = pulse;
+      } else {
+        warningEl.style.display = 'none';
+      }
+    }
+
+    /***********************
+     * GAME LOOP
+     ***********************/
+    let lastTime = Date.now();
+    let frameCount = 0;
+    let fpsTime = 0;
+    let currentFPS = 0;
+    let frameTimes = [];
+    let avgFrameTime = 0;
+    const MAX_FRAME_SAMPLES = 60; // Track last 60 frames
+    
+    function gameLoop() {
+      const frameStart = performance.now();
+      const now = Date.now();
+      const deltaTime = (now - lastTime) / 16.67; // Normalize to 60fps
+      lastTime = now;
+
+      update(deltaTime);
+      render();
+      
+      // Performance monitoring
+      const frameTime = performance.now() - frameStart;
+      frameTimes.push(frameTime);
+      if (frameTimes.length > MAX_FRAME_SAMPLES) {
+        frameTimes.shift();
+      }
+      avgFrameTime = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
+      
+      // Calculate FPS
+      frameCount++;
+      fpsTime += deltaTime * 16.67; // Convert to ms
+      if (fpsTime >= 1000) {
+        currentFPS = Math.round((frameCount * 1000) / fpsTime);
+        frameCount = 0;
+        fpsTime = 0;
+      }
+      
+      // Update performance monitor
+      updatePerformanceMonitor(frameTime, avgFrameTime, currentFPS);
+
+      requestAnimationFrame(gameLoop);
+    }
+    
+    let minFrameTime = Infinity;
+    let maxFrameTime = 0;
+    
+    function updatePerformanceMonitor(frameTime, avgFrameTime, fps) {
+      const perfMonitor = document.getElementById('performanceMonitor');
+      if (!perfMonitor) return;
+      
+      // Update min/max frame times
+      if (frameTime < minFrameTime) minFrameTime = frameTime;
+      if (frameTime > maxFrameTime) maxFrameTime = frameTime;
+      
+      // Reset min/max every 5 seconds to show recent extremes
+      if (frameTimes.length === 0) {
+        minFrameTime = Infinity;
+        maxFrameTime = 0;
+      }
+      
+      document.getElementById('fpsText').textContent = fps;
+      document.getElementById('frameTimeText').textContent = frameTime.toFixed(1);
+      document.getElementById('avgFrameTimeText').textContent = avgFrameTime.toFixed(1);
+      document.getElementById('minFrameTimeText').textContent = minFrameTime === Infinity ? '0' : minFrameTime.toFixed(1);
+      document.getElementById('maxFrameTimeText').textContent = maxFrameTime.toFixed(1);
+      
+      // Memory usage (Chrome only)
+      if (performance.memory) {
+        const usedMB = (performance.memory.usedJSHeapSize / 1048576).toFixed(1);
+        const totalMB = (performance.memory.totalJSHeapSize / 1048576).toFixed(1);
+        const limitMB = (performance.memory.jsHeapSizeLimit / 1048576).toFixed(1);
+        document.getElementById('memoryText').textContent = `${usedMB} MB`;
+        document.getElementById('heapText').textContent = `${totalMB} MB`;
+        document.getElementById('limitText').textContent = `${limitMB} MB`;
+      } else {
+        document.getElementById('memoryText').textContent = 'N/A';
+        document.getElementById('heapText').textContent = 'N/A';
+        document.getElementById('limitText').textContent = 'N/A';
+      }
+      
+      // Object counts
+      const starCount = stars ? stars.length : 0;
+      const objectCount = (planets ? planets.length : 0) + 
+                         (moons ? moons.length : 0) + 
+                         (lagrangePoints ? lagrangePoints.length : 0) + 
+                         (projectiles ? projectiles.length : 0) + 
+                         (impacts ? impacts.length : 0) + 
+                         1; // ship
+      document.getElementById('starCountText').textContent = starCount.toLocaleString();
+      document.getElementById('objectCountText').textContent = objectCount;
+      document.getElementById('canvasSizeText').textContent = `${CANVAS.width}x${CANVAS.height}`;
+    }
+    
+    // Copy performance info to clipboard
+    document.addEventListener('DOMContentLoaded', () => {
+      const copyButton = document.getElementById('copyPerfButton');
+      if (copyButton) {
+        copyButton.addEventListener('click', () => {
+          const fps = document.getElementById('fpsText').textContent;
+          const frameTime = document.getElementById('frameTimeText').textContent;
+          const avgFrameTime = document.getElementById('avgFrameTimeText').textContent;
+          const minFrameTime = document.getElementById('minFrameTimeText').textContent;
+          const maxFrameTime = document.getElementById('maxFrameTimeText').textContent;
+          const memory = document.getElementById('memoryText').textContent;
+          const heap = document.getElementById('heapText').textContent;
+          const limit = document.getElementById('limitText').textContent;
+          const starCount = document.getElementById('starCountText').textContent;
+          const objectCount = document.getElementById('objectCountText').textContent;
+          const canvasSize = document.getElementById('canvasSizeText').textContent;
+          
+          const perfInfo = `Performance Metrics:
+FPS: ${fps}
+Frame Time: ${frameTime} ms
+Avg Frame Time: ${avgFrameTime} ms
+Min Frame Time: ${minFrameTime} ms
+Max Frame Time: ${maxFrameTime} ms
+
+Memory: ${memory}
+Heap: ${heap}
+Limit: ${limit}
+
+Stars: ${starCount}
+Objects: ${objectCount}
+Canvas: ${canvasSize}`;
+          
+          navigator.clipboard.writeText(perfInfo).then(() => {
+            const originalText = copyButton.textContent;
+            copyButton.textContent = 'COPIED!';
+            copyButton.style.background = 'rgba(76, 175, 80, 0.3)';
+            setTimeout(() => {
+              copyButton.textContent = originalText;
+              copyButton.style.background = 'rgba(255, 255, 255, 0.1)';
+            }, 1000);
+          }).catch(err => {
+            console.error('Failed to copy:', err);
+            copyButton.textContent = 'ERROR';
+            setTimeout(() => {
+              copyButton.textContent = 'COPY';
+            }, 1000);
+          });
+        });
+      }
+    });
+
+    /***********************
+     * EVENT LISTENERS
+     ***********************/
+    const startButton = document.getElementById('startButton');
+    const handleStart = () => {
+      initGame();
+    };
+    
+    // Support both click and touch
+    startButton.addEventListener('click', handleStart);
+    startButton.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      handleStart();
+    });
+
+    window.addEventListener('resize', () => {
+      CANVAS.width = window.innerWidth;
+      CANVAS.height = window.innerHeight;
+      
+      // Update WebGL viewport
+      if (gl) {
+        gl.viewport(0, 0, CANVAS.width, CANVAS.height);
+      }
+    });
+
+    // Start game loop
+    gameLoop();
+  </script>
+</body>
+</html>
+
