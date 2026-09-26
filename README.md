@@ -1,5 +1,12 @@
 # Orbital Velocity
 
+## Start here
+
+[Open main build](https://actiondaveinri.github.io/orbital-velocity/index.html) · [All projects](https://github.com/ActionDaveInRI/spaceship/blob/main/PROJECTS.md)
+
+One main HTML build, with existing gameplay documentation below.
+
+
 **Escape Velocity-Inspired Space Game with Orbital Mechanics**
 
 A top-down space game where you pilot a ship through a planetary system, experiencing realistic orbital mechanics. Navigate using Newtonian physics, enter stable orbits around planets, and explore the gravity wells of multiple celestial bodies.
