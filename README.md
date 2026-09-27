@@ -1,11 +1,14 @@
 # Orbital Velocity
 
-## Start here
+A top-down spaceflight experiment built around thrust, gravity, and orbital motion.
 
-[Open main build](https://actiondaveinri.github.io/orbital-velocity/index.html) · [All projects](https://github.com/ActionDaveInRI/spaceship/blob/main/PROJECTS.md)
+[Open project](https://actiondaveinri.github.io/orbital-velocity/) · [All projects](https://actiondaveinri.github.io/spaceship/)
 
-One main HTML build, with existing gameplay documentation below.
+The repository root is this single project’s directory. `index.html` is unchanged. A working graphics screenshot is pending: this capture browser lacks the WebGL context requested by the game. Gameplay has not been revalidated.
 
+## Original project notes and notices
+
+# Orbital Velocity
 
 **Escape Velocity-Inspired Space Game with Orbital Mechanics**
 
@@ -114,4 +117,5 @@ Built as a standalone HTML5 Canvas game. No dependencies required - just open `i
 2025 David Miles Santagata - GPL 4 Non Commercial License
 
 This work is protected IP, but you may use it for non-commercial purposes. You may even modify it for non-commercial purposes. However, if any of this code ends up in a commercial product I'll sue your pants off. Have fun :)
+
 
